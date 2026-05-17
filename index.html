@@ -1721,7 +1721,7 @@ function renderTypeDetail() {
             ${typeReports.map(r => `
               <a class="forum-report-item" href="${esc(r.url)}" target="_blank" rel="noopener">
                 <span class="forum-report-title">${esc(r.title)}</span>
-                <span class="forum-report-meta">${esc(r.author)} · ${esc(r.date)}</span>
+                <span class="forum-report-meta">${esc(r.author)} · ${esc(r.date)} · ♥ ${r.likes || 0}</span>
               </a>
             `).join('')}
           </div>

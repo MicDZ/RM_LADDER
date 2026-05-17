@@ -155,6 +155,7 @@ def match_articles(articles, school_type_map):
                     "url": f"https://bbs.robomaster.com/article/{article_id}",
                     "author": article.get("authorNickname", ""),
                     "date": date_str,
+                    "likes": article.get("approvals", 0) or 0,
                 })
 
     return reports
