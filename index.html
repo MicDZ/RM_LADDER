@@ -1344,7 +1344,7 @@ function renderRadarChart() {
     }
     if (closestDist < angleStep / 2) {
       schoolType = types[closestIdx];
-      showTypeDetail(schoolType);
+      showTypeDetail(schoolType, true);
       // Update URL
       navigateToSchool(schoolCollege, schoolType, currentYear);
     }
@@ -1885,14 +1885,14 @@ function getFieldRank(type, field, zoneId, year, college) {
   return { rank: '-', total: robots.length };
 }
 
-function showTypeDetail(typeName) {
+function showTypeDetail(typeName, scroll) {
   schoolType = typeName;
   detailYears = [];
   document.getElementById('radarHint').style.display = 'none';
   const el = document.getElementById('schoolTypeDetail');
   el.style.display = 'block';
   renderTypeDetail();
-  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  if (scroll) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 function renderTypeDetail() {
