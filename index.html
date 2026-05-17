@@ -764,6 +764,7 @@ td.num-cell.highlight {
     <div id="schoolRadarWrap" class="radar-wrap"></div>
     <p id="radarHint" style="text-align:center;color:var(--ink-mute);font-size:13px;margin-top:-8px;margin-bottom:var(--sp-lg);display:none">点击雷达图上的兵种节点查看具体数据</p>
     <div id="scoreHistoryWrap" style="display:none;margin-bottom:var(--sp-xl)"></div>
+    <div id="assessmentHistoryWrap" style="display:none;margin-bottom:var(--sp-xl)"></div>
     <div id="schoolTypeDetail" style="display:none"></div>
   </section>
 
@@ -910,6 +911,7 @@ let currentYear = '2026';
 let DATA = null;
 let forumReports = null;
 let scoreHistory = null;
+let assessmentHistory = null;
 let collegeLogos = {};
 let currentZone = 'all';
 let currentType = 'Infantry';
@@ -1179,6 +1181,7 @@ function renderSchoolDetail() {
     document.getElementById('schoolRadarWrap').innerHTML = '';
     document.getElementById('schoolTypeDetail').style.display = 'none';
     document.getElementById('scoreHistoryWrap').style.display = 'none';
+    document.getElementById('assessmentHistoryWrap').style.display = 'none';
     return;
   }
   const teams = getCollegeTeams(schoolCollege);
@@ -1238,6 +1241,7 @@ function renderSchoolDetail() {
 
   renderRadarChart();
   renderScoreHistory();
+  renderAssessmentHistory();
 
   // If URL has type param, show detail
   if (schoolType && TYPE_NAMES[schoolType]) {
@@ -1495,7 +1499,7 @@ function renderScoreHistory() {
     ctx.lineWidth = 1;
     ctx.stroke();
     // Rank label
-    const rankVal = Math.round(maxR - (rRange * i / gridSteps));
+    const rankVal = Math.round(minR + (rRange * i / gridSteps));
     ctx.fillStyle = 'rgba(255,255,255,0.35)';
     ctx.font = '20px D-DIN, Arial, sans-serif';
     ctx.textAlign = 'right';
@@ -1546,6 +1550,117 @@ function renderScoreHistory() {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
     ctx.fillText(`#${p.rank} ${p.score.toFixed(1)}`, p.x, p.y - 8);
+  });
+}
+
+// ── Assessment History Chart ──
+function renderAssessmentHistory() {
+  const wrap = document.getElementById('assessmentHistoryWrap');
+  if (!assessmentHistory || !assessmentHistory.schools[schoolCollege]) {
+    wrap.style.display = 'none';
+    return;
+  }
+  const entries = assessmentHistory.schools[schoolCollege];
+  if (entries.length < 2) {
+    wrap.style.display = 'none';
+    return;
+  }
+
+  wrap.style.display = 'block';
+  const w = Math.min(wrap.clientWidth || 600, 600);
+  const h = 220;
+  const padL = 50, padR = 20, padT = 30, padB = 40;
+  const chartW = w - padL - padR;
+  const chartH = h - padT - padB;
+
+  const years = entries.map(e => e.year);
+  const ranks = entries.map(e => e.rank);
+  const minRank = Math.min(...ranks);
+  const maxRank = Math.max(...ranks);
+  const rankRange = maxRank - minRank || 1;
+
+  wrap.innerHTML = `
+    <div class="type-detail-section">
+      <div class="type-detail-header">
+        <span class="type-detail-title">完整形态考核排名</span>
+      </div>
+      <canvas id="assessmentHistoryCanvas" width="${w*2}" height="${h*2}" style="width:${w}px;height:${h}px;display:block;margin:0 auto"></canvas>
+    </div>
+  `;
+
+  const canvas = document.getElementById('assessmentHistoryCanvas');
+  const ctx = canvas.getContext('2d');
+  const cw = canvas.width;
+  const ch = canvas.height;
+  const cPadL = padL * 2, cPadR = padR * 2, cPadT = padT * 2, cPadB = padB * 2;
+  const cChartW = cw - cPadL - cPadR;
+  const cChartH = ch - cPadT - cPadB;
+
+  ctx.clearRect(0, 0, cw, ch);
+
+  const minR = minRank - rankRange * 0.1;
+  const maxR = Math.max(1, maxRank + rankRange * 0.1);
+  const rRange = maxR - minR;
+
+  // Grid lines
+  const gridSteps = 4;
+  for (let i = 0; i <= gridSteps; i++) {
+    const y = cPadT + (cChartH * i / gridSteps);
+    ctx.beginPath();
+    ctx.moveTo(cPadL, y);
+    ctx.lineTo(cPadL + cChartW, y);
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    const rankVal = Math.round(minR + (rRange * i / gridSteps));
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.font = '20px D-DIN, Arial, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`#${rankVal}`, cPadL - 8, y);
+  }
+
+  // Data points
+  const points = entries.map((e, i) => {
+    const x = cPadL + (cChartW * i / (years.length - 1));
+    const y = cPadT + (cChartH * (e.rank - minR) / rRange);
+    return { x, y, year: e.year, rank: e.rank, score: e.score };
+  });
+
+  // Line
+  ctx.beginPath();
+  points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+  ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Area fill
+  ctx.beginPath();
+  points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+  ctx.lineTo(points[points.length-1].x, cPadT + cChartH);
+  ctx.lineTo(points[0].x, cPadT + cChartH);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(255,255,255,0.03)';
+  ctx.fill();
+
+  // Points and labels
+  points.forEach(p => {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff';
+    ctx.fill();
+
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font = '20px D-DIN, Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(p.year, p.x, cPadT + cChartH + 8);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    ctx.font = 'bold 20px D-DIN, Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(`#${p.rank} ${p.score}`, p.x, p.y - 8);
   });
 }
 
@@ -2269,10 +2384,21 @@ async function loadScoreHistory() {
   return scoreHistory;
 }
 
+async function loadAssessmentHistory() {
+  if (assessmentHistory) return assessmentHistory;
+  try {
+    const resp = await fetch('static/assessment_history.json');
+    assessmentHistory = await resp.json();
+  } catch (e) {
+    assessmentHistory = null;
+  }
+  return assessmentHistory;
+}
+
 async function init() {
   await loadCollegeLogos();
   DATA = await loadData(currentYear);
-  await Promise.all([loadForumReports(), loadScoreHistory()]);
+  await Promise.all([loadForumReports(), loadScoreHistory(), loadAssessmentHistory()]);
   // Pre-load all years for search
   for (const y of YEAR_ORDER) { loadData(y); }
   handleRoute();
