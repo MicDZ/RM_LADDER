@@ -571,6 +571,40 @@ td.num-cell.highlight {
   padding: var(--sp-xl);
   margin-bottom: var(--sp-xl);
 }
+.forum-report-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-sm);
+}
+.forum-report-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--sp-md) var(--sp-lg);
+  border: 1px solid var(--hairline-on-dark);
+  border-radius: var(--radius-xs);
+  text-decoration: none;
+  color: var(--on-primary);
+  transition: border-color 0.15s, background 0.15s;
+}
+.forum-report-item:hover {
+  border-color: var(--accent);
+  background: rgba(255,255,255,0.03);
+}
+.forum-report-title {
+  font-size: 14px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  margin-right: var(--sp-lg);
+}
+.forum-report-meta {
+  font-size: 12px;
+  color: var(--ink-mute);
+  white-space: nowrap;
+}
 
 /* ── Compare Page ── */
 .compare-slot {
@@ -841,6 +875,7 @@ const DATA_CACHE = {};
 const YEAR_ORDER = ['2026', '2025'];
 let currentYear = '2026';
 let DATA = null;
+let forumReports = null;
 let currentZone = 'all';
 let currentType = 'Infantry';
 let ladderZone = 'all';
@@ -1672,6 +1707,29 @@ function renderTypeDetail() {
     </div>
   `;
 
+  // Open-source reports section
+  if (forumReports && forumReports[schoolCollege]) {
+    const typeReports = forumReports[schoolCollege][typeName];
+    if (typeReports && typeReports.length > 0) {
+      html += `
+        <div class="type-detail-section" style="margin-top:var(--sp-lg)">
+          <div class="type-detail-header">
+            <span class="type-detail-title">开源报告</span>
+            <span style="font-size:13px;color:var(--ink-mute)">${typeReports.length} 篇</span>
+          </div>
+          <div class="forum-report-list">
+            ${typeReports.map(r => `
+              <a class="forum-report-item" href="${esc(r.url)}" target="_blank" rel="noopener">
+                <span class="forum-report-title">${esc(r.title)}</span>
+                <span class="forum-report-meta">${esc(r.author)} · ${esc(r.date)}</span>
+              </a>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+  }
+
   el.innerHTML = html;
   el.style.display = 'block';
 }
@@ -1980,8 +2038,21 @@ function renderCompareResult() {
 }
 
 // ── Init ──
+async function loadForumReports() {
+  if (forumReports) return forumReports;
+  try {
+    const resp = await fetch('static/forum_reports_2026.json');
+    const data = await resp.json();
+    forumReports = data.reports || {};
+  } catch (e) {
+    forumReports = {};
+  }
+  return forumReports;
+}
+
 async function init() {
   DATA = await loadData(currentYear);
+  await loadForumReports();
   handleRoute();
 }
 
@@ -2185,7 +2256,7 @@ function renderLadder() {
   const el = document.getElementById('ladderBoard');
   document.getElementById('ladderNote').textContent = `按「${cfg.label}」排名`;
   el.innerHTML = top.map((r, i) => `
-    <div class="ladder-card${i < 3 ? ' rank-' + (i+1) : ''}" data-college="${esc(r.collegeName)}" style="cursor:pointer">
+    <div class="ladder-card${i < 3 ? ' rank-' + (i+1) : ''}" data-college="${esc(r.collegeName)}" data-type="${r.type}" style="cursor:pointer">
       <div class="ladder-rank${i < 3 ? ' top3' : ''}">${i + 1}</div>
       <img class="ladder-logo" src="${esc(r.collegeLogo)}" alt="" loading="lazy" width="40" height="40" style="background:#fff;padding:2px;border-radius:50%">
       <div class="ladder-info">
@@ -2297,7 +2368,7 @@ window.addEventListener('hashchange', handleRoute);
 // ── Click delegation for ladder cards & table rows ──
 document.getElementById('ladderBoard').addEventListener('click', function(e) {
   const card = e.target.closest('.ladder-card[data-college]');
-  if (card) navigateToSchool(card.dataset.college, '', currentYear);
+  if (card) navigateToSchool(card.dataset.college, card.dataset.type, currentYear);
 });
 document.getElementById('tableBody').addEventListener('click', function(e) {
   const row = e.target.closest('tr[data-college]');
