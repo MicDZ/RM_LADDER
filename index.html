@@ -762,6 +762,8 @@ td.num-cell.highlight {
     <div id="schoolHeader"></div>
     <div id="schoolZoneFilter"></div>
     <div id="schoolRadarWrap" class="radar-wrap"></div>
+    <p id="radarHint" style="text-align:center;color:var(--ink-mute);font-size:13px;margin-top:-8px;margin-bottom:var(--sp-lg);display:none">点击雷达图上的兵种节点查看具体数据</p>
+    <div id="scoreHistoryWrap" style="display:none;margin-bottom:var(--sp-xl)"></div>
     <div id="schoolTypeDetail" style="display:none"></div>
   </section>
 
@@ -810,6 +812,16 @@ const FIELD_MAP = {
   eaAssembleEcon: '局均装配经济',
   eaAssembleSuccCnt: '局均装配成功次数',
   avgAssembleDiff: '均装配等级',
+  gameBase: '基地剩余血量',
+  gameMoney: '总经济',
+  gameDamage: '总伤害',
+  gameKill: '击杀数',
+  gameBullet: '弹丸发射量',
+  gameLongShot: '狙击命中数',
+  gameDuff: '能量机关激活数',
+  gameDrone: '空中支援数',
+  gameDart: '飞镖命中数',
+  gameRadar: '双倍易伤数',
 };
 
 // ── Robot type display names ──
@@ -857,7 +869,7 @@ const YEAR_CONFIG = {
   '2026': {
     file: 'static/robot_data_2026.json',
     excludedZones: [],
-    subRegionalIds: [],
+    subRegionalIds: ['614', '615', '616'],
     typeFields: {
       ...TYPE_FIELDS_DEFAULT,
       Sapper: ['eaAssembleEcon','eaAssembleSuccCnt','avgAssembleDiff'],
@@ -869,13 +881,36 @@ const YEAR_CONFIG = {
       Sapper: { field: 'eaAssembleEcon', label: '局均装配经济' },
     },
   },
+  '2024': {
+    file: 'static/game_stats_2024.json',
+    excludedZones: [],
+    subRegionalIds: [],
+    isGameStats: true,
+    gameStatTypes: { Hero: 1, Sapper: 1, Airplane: 1, Radar: 1, Dart: 1 },
+    typeFields: {
+      Hero: ['gameLongShot','gameDamage','gameKill','gameBullet','gameMoney','gameBase'],
+      Sapper: ['gameMoney','gameDamage','gameKill','gameBullet','gameBase'],
+      Airplane: ['gameDrone','gameDamage','gameKill','gameBullet','gameMoney','gameBase'],
+      Radar: ['gameRadar','gameDamage','gameKill','gameBullet','gameMoney','gameBase'],
+      Dart: ['gameDart','gameDamage','gameKill','gameBullet','gameMoney','gameBase'],
+    },
+    ladderFields: {
+      Hero: { field: 'gameLongShot', label: '场均狙击命中数' },
+      Sapper: { field: 'gameMoney', label: '场均总经济' },
+      Airplane: { field: 'gameDrone', label: '场均空中支援数' },
+      Radar: { field: 'gameRadar', label: '场均双倍易伤数' },
+      Dart: { field: 'gameDart', label: '场均飞镖命中数' },
+    },
+  },
 };
 
 const DATA_CACHE = {};
-const YEAR_ORDER = ['2026', '2025'];
+const YEAR_ORDER = ['2026', '2025', '2024'];
 let currentYear = '2026';
 let DATA = null;
 let forumReports = null;
+let scoreHistory = null;
+let collegeLogos = {};
 let currentZone = 'all';
 let currentType = 'Infantry';
 let ladderZone = 'all';
@@ -895,7 +930,18 @@ async function loadData(year) {
   if (DATA_CACHE[year]) return DATA_CACHE[year];
   const cfg = YEAR_CONFIG[year];
   const resp = await fetch(cfg.file);
-  const data = await resp.json();
+  let data = await resp.json();
+  if (cfg.isGameStats) {
+    // Transform flat game stats into zone-based structure with per-type robots
+    const types = cfg.gameStatTypes || {};
+    const teams = Object.values(data.schools).map(s => ({
+      collegeName: s.collegeName,
+      name: s.collegeName,
+      collegeLogo: '',
+      robots: Object.keys(types).map(type => ({ type, robotNumber: '-', ...s })),
+    }));
+    data = { zones: [{ zoneId: 'all', zoneName: '全国赛', teams }] };
+  }
   DATA_CACHE[year] = data;
   return data;
 }
@@ -932,6 +978,11 @@ function handleRoute() {
       if (year !== currentYear) {
         currentYear = year;
         DATA = null;
+        const cfg = YEAR_CONFIG[year];
+        if (cfg.gameStatTypes) {
+          const firstType = Object.keys(cfg.gameStatTypes)[0];
+          currentType = firstType; ladderType = firstType;
+        } else { currentType = 'Infantry'; ladderType = 'Infantry'; }
       }
       loadData(year).then(data => {
         DATA = data;
@@ -1033,6 +1084,7 @@ function getCollegeTeams(collegeName) {
 function getRobotRank(robotType, zoneId) {
   const cfg = YEAR_CONFIG[currentYear];
   const ladderCfg = cfg.ladderFields[robotType];
+  if (!ladderCfg) return { total: 0, sorted: [], field: '', label: '' };
   let robots;
   if (zoneId === 'all') {
     robots = getRobots('all', robotType);
@@ -1052,14 +1104,15 @@ function getCollegeRobotInZone(collegeName, zoneId, type) {
 
 // ── School Detail Rendering ──
 function getAllColleges(year) {
-  const yearData = DATA_CACHE[year] || DATA;
-  if (!yearData) return [];
-  const cfg = YEAR_CONFIG[year];
   const colleges = new Set();
-  yearData.zones.forEach(z => {
-    if (cfg.excludedZones.includes(z.zoneId)) return;
-    z.teams.forEach(t => colleges.add(t.collegeName));
-  });
+  for (const y of Object.keys(DATA_CACHE)) {
+    const yearData = DATA_CACHE[y];
+    const cfg = YEAR_CONFIG[y];
+    yearData.zones.forEach(z => {
+      if (cfg.excludedZones.includes(z.zoneId)) return;
+      z.teams.forEach(t => colleges.add(t.collegeName));
+    });
+  }
   return [...colleges].sort();
 }
 
@@ -1125,6 +1178,7 @@ function renderSchoolDetail() {
     document.getElementById('schoolZoneFilter').innerHTML = '';
     document.getElementById('schoolRadarWrap').innerHTML = '';
     document.getElementById('schoolTypeDetail').style.display = 'none';
+    document.getElementById('scoreHistoryWrap').style.display = 'none';
     return;
   }
   const teams = getCollegeTeams(schoolCollege);
@@ -1133,7 +1187,7 @@ function renderSchoolDetail() {
     return;
   }
 
-  const logo = teams[0].team.collegeLogo;
+  const logo = collegeLogos[schoolCollege] || teams[0].team.collegeLogo || '';
   const teamName = teams[0].team.name;
   const zoneSummary = teams.map(t => t.zoneName).join(' · ');
 
@@ -1164,11 +1218,16 @@ function renderSchoolDetail() {
   }
 
   // Year + Zone filter bar (same style as main page)
+  const availableYears = YEAR_ORDER.filter(y => {
+    const yd = DATA_CACHE[y];
+    if (!yd) return false;
+    return yd.zones.some(z => z.teams.some(t => t.collegeName === schoolCollege));
+  });
   document.getElementById('schoolZoneFilter').innerHTML = `
     <div class="filter-bar" style="padding-top:0">
       <div class="filter-group">
         <span class="filter-label">年份</span>
-        ${YEAR_ORDER.map(y => `<button class="pill${y===currentYear?' active':''}" onclick="setSchoolYear('${y}',this)">${y}</button>`).join('')}
+        ${availableYears.map(y => `<button class="pill${y===currentYear?' active':''}" onclick="setSchoolYear('${y}',this)">${y}</button>`).join('')}
       </div>
       <div class="filter-group">
         <span class="filter-label">赛区</span>
@@ -1178,6 +1237,7 @@ function renderSchoolDetail() {
   `;
 
   renderRadarChart();
+  renderScoreHistory();
 
   // If URL has type param, show detail
   if (schoolType && TYPE_NAMES[schoolType]) {
@@ -1193,6 +1253,12 @@ function setSchoolYear(year, el) {
   el.closest('.filter-group').querySelectorAll('.pill').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
   DATA = null;
+  const cfg = YEAR_CONFIG[year];
+  if (cfg.gameStatTypes) {
+    schoolType = Object.keys(cfg.gameStatTypes)[0];
+  } else if (!TYPE_NAMES[schoolType]) {
+    schoolType = 'Infantry';
+  }
   loadData(year).then(data => {
     DATA = data;
     detailCompareZones = [];
@@ -1216,7 +1282,8 @@ function setSchoolZone(zoneId, el) {
 // ── Radar Chart ──
 function renderRadarChart() {
   const container = document.getElementById('schoolRadarWrap');
-  const types = Object.keys(TYPE_NAMES);
+  const ladderFields = YEAR_CONFIG[currentYear].ladderFields;
+  const types = Object.keys(ladderFields);
 
   // Compute rank data for each type
   const dataPoints = types.map(type => {
@@ -1245,6 +1312,7 @@ function renderRadarChart() {
   container.innerHTML = `<canvas id="radarCanvas" width="${size*2}" height="${size*2}" style="width:${size}px;height:${size}px"></canvas>`;
   const canvas = document.getElementById('radarCanvas');
   drawRadarChart(canvas, dataPoints);
+  document.getElementById('radarHint').style.display = 'block';
 
   // Click handler
   canvas.addEventListener('click', function(e) {
@@ -1286,7 +1354,7 @@ function drawRadarChart(canvas, dataPoints) {
   const cx = w / 2;
   const cy = h / 2;
   const outerR = Math.min(w, h) * 0.28;
-  const numAxes = 7;
+  const numAxes = dataPoints.length;
   const angleStep = (2 * Math.PI) / numAxes;
   const startAngle = -Math.PI / 2;
 
@@ -1363,6 +1431,121 @@ function drawRadarChart(canvas, dataPoints) {
     ctx.textBaseline = Math.abs(Math.sin(angle)) < 0.1 ? 'middle' : Math.sin(angle) > 0 ? 'top' : 'bottom';
 
     ctx.fillText(`${d.typeName} #${d.rank}`, lx, ly);
+  });
+}
+
+// ── Score History Chart ──
+function renderScoreHistory() {
+  const wrap = document.getElementById('scoreHistoryWrap');
+  if (!scoreHistory || !scoreHistory.schools[schoolCollege]) {
+    wrap.style.display = 'none';
+    return;
+  }
+  const entries = scoreHistory.schools[schoolCollege];
+  if (entries.length < 2) {
+    wrap.style.display = 'none';
+    return;
+  }
+
+  wrap.style.display = 'block';
+  const w = Math.min(wrap.clientWidth || 600, 600);
+  const h = 220;
+  const padL = 50, padR = 20, padT = 30, padB = 40;
+  const chartW = w - padL - padR;
+  const chartH = h - padT - padB;
+
+  const years = entries.map(e => e.year);
+  const ranks = entries.map(e => e.rank);
+  const minRank = Math.min(...ranks);
+  const maxRank = Math.max(...ranks);
+  const rankRange = maxRank - minRank || 1;
+
+  wrap.innerHTML = `
+    <div class="type-detail-section">
+      <div class="type-detail-header">
+        <span class="type-detail-title">积分榜历史</span>
+      </div>
+      <canvas id="scoreHistoryCanvas" width="${w*2}" height="${h*2}" style="width:${w}px;height:${h}px;display:block;margin:0 auto"></canvas>
+    </div>
+  `;
+
+  const canvas = document.getElementById('scoreHistoryCanvas');
+  const ctx = canvas.getContext('2d');
+  const cw = canvas.width;
+  const ch = canvas.height;
+  const cPadL = padL * 2, cPadR = padR * 2, cPadT = padT * 2, cPadB = padB * 2;
+  const cChartW = cw - cPadL - cPadR;
+  const cChartH = ch - cPadT - cPadB;
+
+  ctx.clearRect(0, 0, cw, ch);
+
+  // Scale factor
+  const minR = minRank - rankRange * 0.1;
+  const maxR = Math.max(1, maxRank + rankRange * 0.1);
+  const rRange = maxR - minR;
+
+  // Grid lines
+  const gridSteps = 4;
+  for (let i = 0; i <= gridSteps; i++) {
+    const y = cPadT + (cChartH * i / gridSteps);
+    ctx.beginPath();
+    ctx.moveTo(cPadL, y);
+    ctx.lineTo(cPadL + cChartW, y);
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    // Rank label
+    const rankVal = Math.round(maxR - (rRange * i / gridSteps));
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.font = '20px D-DIN, Arial, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`#${rankVal}`, cPadL - 8, y);
+  }
+
+  // Data points
+  const points = entries.map((e, i) => {
+    const x = cPadL + (cChartW * i / (years.length - 1));
+    const y = cPadT + (cChartH * (e.rank - minR) / rRange);
+    return { x, y, year: e.year, rank: e.rank, score: e.score };
+  });
+
+  // Line
+  ctx.beginPath();
+  points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+  ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Area fill
+  ctx.beginPath();
+  points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+  ctx.lineTo(points[points.length-1].x, cPadT + cChartH);
+  ctx.lineTo(points[0].x, cPadT + cChartH);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(255,255,255,0.03)';
+  ctx.fill();
+
+  // Points and labels
+  points.forEach(p => {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff';
+    ctx.fill();
+
+    // Year label
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font = '20px D-DIN, Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(p.year, p.x, cPadT + cChartH + 8);
+
+    // Rank + score label above point
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    ctx.font = 'bold 20px D-DIN, Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(`#${p.rank} ${p.score.toFixed(1)}`, p.x, p.y - 8);
   });
 }
 
@@ -1590,6 +1773,7 @@ function getFieldRank(type, field, zoneId, year, college) {
 function showTypeDetail(typeName) {
   schoolType = typeName;
   detailYears = [];
+  document.getElementById('radarHint').style.display = 'none';
   const el = document.getElementById('schoolTypeDetail');
   el.style.display = 'block';
   renderTypeDetail();
@@ -1770,7 +1954,7 @@ function getCompareColleges(year, zoneId) {
     if (z.zoneId !== zoneId) return;
     z.teams.forEach(t => {
       if (!colleges.find(c => c.name === t.collegeName)) {
-        colleges.push({ name: t.collegeName, logo: t.collegeLogo });
+        colleges.push({ name: t.collegeName, logo: collegeLogos[t.collegeName] || t.collegeLogo || '' });
       }
     });
   });
@@ -1847,11 +2031,21 @@ function renderComparePage() {
     }
   }
 
-  // Shared type selector (centered)
+  // Shared type selector (centered) — show types available in selected years
+  const compareTypeSet = new Set();
+  compareSlots.forEach(slot => {
+    const cfg = YEAR_CONFIG[slot.year];
+    if (cfg) Object.keys(cfg.ladderFields || cfg.typeFields || {}).forEach(t => compareTypeSet.add(t));
+  });
+  if (compareType !== 'all' && !compareTypeSet.has(compareType)) {
+    compareType = compareTypeSet.size > 0 ? [...compareTypeSet][0] : 'all';
+  }
+  const compareTypeNames = {};
+  compareTypeSet.forEach(t => { compareTypeNames[t] = TYPE_NAMES[t] || t; });
   document.getElementById('compareTypeFilter').innerHTML = `
     <div class="filter-group" style="display:inline-flex">
       <span class="filter-label">兵种</span>
-      ${Object.entries(TYPE_NAMES).map(([k,v]) => `<button class="pill${k===compareType?' active':''}" onclick="setCompareType('${k}',this)">${v}</button>`).join('')}
+      ${Object.entries(compareTypeNames).map(([k,v]) => `<button class="pill${k===compareType?' active':''}" onclick="setCompareType('${k}',this)">${v}</button>`).join('')}
       <button class="pill${compareType==='all'?' active':''}" onclick="setCompareType('all',this)">全兵种</button>
     </div>
   `;
@@ -1907,7 +2101,12 @@ function renderCompareResult() {
       'rgba(255,255,255,1)', 'rgba(46,204,113,1)', 'rgba(52,152,219,1)',
       'rgba(231,76,60,1)', 'rgba(241,196,15,1)', 'rgba(155,89,182,1)', 'rgba(230,126,34,1)'
     ];
-    const typeKeys = Object.keys(TYPE_NAMES);
+    const typeKeySet = new Set();
+    compareSlots.forEach(slot => {
+      const cfg = YEAR_CONFIG[slot.year];
+      if (cfg) Object.keys(cfg.ladderFields || {}).forEach(t => typeKeySet.add(t));
+    });
+    const typeKeys = [...typeKeySet];
     const slotData = compareSlots.map((slot, si) => {
       const zones = getCompareZones(slot.year);
       const zn = zones.find(z => z.zoneId === slot.zone);
@@ -2050,10 +2249,34 @@ async function loadForumReports() {
   return forumReports;
 }
 
+async function loadCollegeLogos() {
+  try {
+    const resp = await fetch('static/college_logos.json');
+    collegeLogos = await resp.json();
+  } catch (e) {
+    collegeLogos = {};
+  }
+}
+
+async function loadScoreHistory() {
+  if (scoreHistory) return scoreHistory;
+  try {
+    const resp = await fetch('static/score_history.json');
+    scoreHistory = await resp.json();
+  } catch (e) {
+    scoreHistory = null;
+  }
+  return scoreHistory;
+}
+
 async function init() {
+  await loadCollegeLogos();
   DATA = await loadData(currentYear);
-  await loadForumReports();
+  await Promise.all([loadForumReports(), loadScoreHistory()]);
+  // Pre-load all years for search
+  for (const y of YEAR_ORDER) { loadData(y); }
   handleRoute();
+  window.addEventListener('hashchange', handleRoute);
 }
 
 // ── Year Switch ──
@@ -2069,6 +2292,13 @@ async function setYear(year, el) {
   currentZone = 'all';
   ladderZone = 'all';
   sortField = null;
+  // Set type for game stats years
+  const cfg = YEAR_CONFIG[year];
+  if (cfg.gameStatTypes) {
+    const firstType = Object.keys(cfg.gameStatTypes)[0];
+    currentType = firstType; ladderType = firstType;
+  }
+  else { currentType = 'Infantry'; ladderType = 'Infantry'; }
   // Load data
   DATA = await loadData(year);
   // Update hero
@@ -2113,21 +2343,21 @@ function renderFilters() {
       <span class="filter-label">年份</span>
       ${YEAR_ORDER.map(y => `<button class="pill${y===currentYear?' active':''}" data-year="${y}" onclick="setYear('${y}',this)">${y}</button>`).join('')}
     </div>
-    <div class="zone-filter">
+    ${zones.length > 0 ? `<div class="zone-filter">
       <div class="filter-group">
         <span class="filter-label">赛区</span>
-        <button class="pill active" data-zone="all" onclick="setDataZone('all',this)">全部</button>
+        ${zones.length > 1 ? '<button class="pill active" data-zone="all" onclick="setDataZone(\'all\',this)">全部</button>' : ''}
         ${hasSubregional ? '<button class="pill" data-zone="subregional" onclick="setDataZone(\'subregional\',this)">分区赛</button>' : ''}
-        ${otherZones.map(z => `<button class="pill" data-zone="${z.zoneId}" onclick="setDataZone('${z.zoneId}',this)">${z.zoneName}</button>`).join('')}
+        ${otherZones.map(z => `<button class="pill${zones.length===1?' active':''}" data-zone="${z.zoneId}" onclick="setDataZone('${z.zoneId}',this)">${z.zoneName}</button>`).join('')}
       </div>
       ${hasSubregional ? `<div class="sub-pills" id="dataSubPills">
         <button class="pill active" data-zone="subregional" onclick="setDataSubZone('subregional',this)">所有赛区</button>
         ${subZones.map(z => `<button class="pill" data-zone="${z.zoneId}" onclick="setDataSubZone('${z.zoneId}',this)">${z.zoneName}</button>`).join('')}
       </div>` : '<div class="sub-pills" id="dataSubPills"></div>'}
-    </div>
+    </div>` : ''}
     <div class="filter-group">
       <span class="filter-label">兵种</span>
-      ${Object.entries(TYPE_NAMES).map(([k,v]) => `<button class="pill${k===currentType?' active':''}" data-type="${k}" onclick="setDataType('${k}',this)">${v}</button>`).join('')}
+      ${(cfg.gameStatTypes ? Object.entries(cfg.gameStatTypes) : Object.entries(TYPE_NAMES)).map(([k,v]) => `<button class="pill${k===currentType?' active':''}" data-type="${k}" onclick="setDataType('${k}',this)">${TYPE_NAMES[k]||k}</button>`).join('')}
     </div>
   `;
 
@@ -2138,21 +2368,21 @@ function renderFilters() {
       <span class="filter-label">年份</span>
       ${YEAR_ORDER.map(y => `<button class="pill${y===currentYear?' active':''}" data-year="${y}" onclick="setYear('${y}',this)">${y}</button>`).join('')}
     </div>
-    <div class="zone-filter">
+    ${zones.length > 0 ? `<div class="zone-filter">
       <div class="filter-group">
         <span class="filter-label">赛区</span>
-        <button class="pill active" data-zone="all" onclick="setLadderZone('all',this)">全部</button>
+        ${zones.length > 1 ? '<button class="pill active" data-zone="all" onclick="setLadderZone(\'all\',this)">全部</button>' : ''}
         ${hasSubregional ? '<button class="pill" data-zone="subregional" onclick="setLadderZone(\'subregional\',this)">分区赛</button>' : ''}
-        ${otherZones.map(z => `<button class="pill" data-zone="${z.zoneId}" onclick="setLadderZone('${z.zoneId}',this)">${z.zoneName}</button>`).join('')}
+        ${otherZones.map(z => `<button class="pill${zones.length===1?' active':''}" data-zone="${z.zoneId}" onclick="setLadderZone('${z.zoneId}',this)">${z.zoneName}</button>`).join('')}
       </div>
       ${hasSubregional ? `<div class="sub-pills" id="ladderSubPills">
         <button class="pill active" data-zone="subregional" onclick="setLadderSubZone('subregional',this)">所有赛区</button>
         ${subZones.map(z => `<button class="pill" data-zone="${z.zoneId}" onclick="setLadderSubZone('${z.zoneId}',this)">${z.zoneName}</button>`).join('')}
       </div>` : '<div class="sub-pills" id="ladderSubPills"></div>'}
-    </div>
+    </div>` : ''}
     <div class="filter-group">
       <span class="filter-label">兵种</span>
-      ${Object.entries(TYPE_NAMES).map(([k,v]) => `<button class="pill${k===ladderType?' active':''}" data-type="${k}" onclick="setLadderType('${k}',this)">${v}</button>`).join('')}
+      ${(cfg.gameStatTypes ? Object.entries(cfg.gameStatTypes) : Object.entries(TYPE_NAMES)).map(([k,v]) => `<button class="pill${k===ladderType?' active':''}" data-type="${k}" onclick="setLadderType('${k}',this)">${TYPE_NAMES[k]||k}</button>`).join('')}
     </div>
   `;
 }
@@ -2238,7 +2468,7 @@ function getRobots(zoneFilter, typeFilter) {
           zoneName: z.zoneName,
           teamName: t.name,
           collegeName: t.collegeName,
-          collegeLogo: t.collegeLogo,
+          collegeLogo: collegeLogos[t.collegeName] || t.collegeLogo || '',
         });
       });
     });
@@ -2301,10 +2531,11 @@ function renderTable() {
 
   // Header
   const thead = document.getElementById('tableHead');
+  const showZoneCol = currentZone === 'all' && DATA.zones.filter(z => !YEAR_CONFIG[currentYear].excludedZones.includes(z.zoneId)).length > 1;
   thead.innerHTML = `<tr>
     <th style="width:48px;text-align:center">#</th>
     <th>队伍</th>
-    ${currentZone === 'all' ? '<th>赛区</th>' : ''}
+    ${showZoneCol ? '<th>赛区</th>' : ''}
     ${fields.map(f => `<th class="${sortField===f?'sorted':''}" style="text-align:right" onclick="toggleSort('${f}')">${FIELD_MAP[f]||f}<span class="sort-arrow">${sortField===f?(sortDir===1?'↑':'↓'):'↕'}</span></th>`).join('')}
   </tr>`;
 
@@ -2326,7 +2557,7 @@ function renderTable() {
         </div>
       </div>
     </td>
-    ${currentZone === 'all' ? `<td style="color:var(--ink-mute);font-size:13px">${esc(r.zoneName)}</td>` : ''}
+    ${showZoneCol ? `<td style="color:var(--ink-mute);font-size:13px">${esc(r.zoneName)}</td>` : ''}
     ${fields.map(f => `<td class="num-cell${f===fields[0]?' highlight':''}">${formatNum(r[f])}</td>`).join('')}
   </tr>`).join('');
 }
@@ -2363,7 +2594,6 @@ function esc(s) {
 document.getElementById('searchInput').addEventListener('input', () => renderTable());
 
 // ── Routing ──
-window.addEventListener('hashchange', handleRoute);
 
 // ── Click delegation for ladder cards & table rows ──
 document.getElementById('ladderBoard').addEventListener('click', function(e) {
