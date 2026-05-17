@@ -1,0 +1,2311 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RM Ladder — RoboMaster 天梯榜</title>
+<style>
+/* ── Reset ── */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* ── Design Tokens (from DESIGN.md) ── */
+:root {
+  --canvas-night: #000000;
+  --canvas-night-soft: #0a0a0a;
+  --canvas-light: #ffffff;
+  --canvas-cool: #f0f0fa;
+  --hairline-on-dark: #3a3a3f;
+  --hairline-on-light: #e0e0e8;
+  --on-primary: #ffffff;
+  --on-primary-mute: #f0f0fa;
+  --ink: #000000;
+  --ink-mute: #5a5a5f;
+  --accent: #e8e8e8;
+
+  --font-display: 'D-DIN-Bold', 'Arial Narrow', Arial, Verdana, sans-serif;
+  --font-body: 'D-DIN', Arial, Verdana, sans-serif;
+
+  --sp-xxs: 4px;
+  --sp-xs: 8px;
+  --sp-sm: 12px;
+  --sp-md: 16px;
+  --sp-lg: 18px;
+  --sp-xl: 24px;
+  --sp-xxl: 32px;
+  --sp-huge: 48px;
+
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-pill: 32px;
+}
+
+/* ── Base ── */
+html { scroll-behavior: smooth; }
+body {
+  background: var(--canvas-night);
+  color: var(--on-primary);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.5;
+  letter-spacing: 0.32px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Nav ── */
+.nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: var(--sp-xl) var(--sp-xxl);
+  background: rgba(0,0,0,0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--hairline-on-dark);
+}
+.nav-logo {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+.nav-links { display: flex; gap: var(--sp-xl); }
+.nav-links a {
+  color: var(--on-primary);
+  text-decoration: none;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.17px;
+  text-transform: uppercase;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+.nav-links a:hover, .nav-links a.active { opacity: 1; }
+
+/* ── Hero ── */
+.hero {
+  padding: 160px var(--sp-xxl) var(--sp-huge);
+  text-align: center;
+}
+.hero h1 {
+  font-family: var(--font-display);
+  font-size: clamp(40px, 6vw, 80px);
+  font-weight: 700;
+  line-height: 0.95;
+  letter-spacing: 1.6px;
+}
+.hero p {
+  margin-top: var(--sp-xl);
+  color: var(--ink-mute);
+  font-size: 16px;
+  letter-spacing: 0.32px;
+}
+
+/* ── Container ── */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--sp-xxl);
+}
+
+/* ── Filter Bar ── */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-sm);
+  padding: var(--sp-xl) 0;
+  align-items: center;
+}
+.filter-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-xxs);
+}
+.filter-label {
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.96px;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin-right: var(--sp-xs);
+  display: flex;
+  align-items: center;
+}
+
+/* ── Ghost Pill Buttons (from DESIGN.md) ── */
+.pill {
+  display: inline-block;
+  padding: 8px 18px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.17px;
+  text-transform: uppercase;
+  color: var(--on-primary);
+  background: var(--canvas-night);
+  border: 1px solid var(--on-primary);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.pill:hover { background: rgba(255,255,255,0.08); }
+.pill.active {
+  background: var(--on-primary);
+  color: var(--ink);
+}
+.sub-pills {
+  max-height: 0;
+  overflow: hidden;
+  gap: var(--sp-xxs);
+  margin-left: 58px;
+  margin-top: 0;
+  transition: max-height 0.3s ease, margin-top 0.3s ease;
+}
+.sub-pills.show {
+  max-height: 60px;
+  margin-top: var(--sp-xs);
+}
+.zone-filter { flex-basis: 100%; }
+
+/* ── Section Headers ── */
+.section-title {
+  font-family: var(--font-display);
+  font-size: 48px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0.96px;
+  text-transform: uppercase;
+  margin: var(--sp-huge) 0 var(--sp-xl);
+}
+
+/* ── Search ── */
+.search-wrap {
+  position: relative;
+  margin-bottom: var(--sp-md);
+}
+.search-input {
+  width: 100%;
+  max-width: 400px;
+  padding: 12px 16px;
+  font-family: var(--font-body);
+  font-size: 16px;
+  color: var(--on-primary);
+  background: var(--canvas-night-soft);
+  border: 1px solid var(--hairline-on-dark);
+  border-radius: var(--radius-xs);
+  outline: none;
+  transition: border-color 0.2s;
+}
+.search-input::placeholder { color: var(--ink-mute); }
+.search-input:focus { border-color: var(--on-primary); }
+
+/* ── Table ── */
+.table-wrap {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 70vh;
+  margin-bottom: var(--sp-huge);
+  border: 1px solid var(--hairline-on-dark);
+  border-radius: var(--radius-sm);
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+thead th {
+  padding: 6px var(--sp-md);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.96px;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  background: var(--canvas-night-soft);
+  border-bottom: 1px solid var(--hairline-on-dark);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.2s;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+thead th:hover { color: var(--on-primary); }
+thead th.sorted { color: var(--on-primary); }
+thead th .sort-arrow { margin-left: 4px; opacity: 0.4; }
+thead th.sorted .sort-arrow { opacity: 1; }
+tbody tr {
+  border-bottom: 1px solid rgba(58,58,63,0.4);
+  transition: background 0.15s;
+}
+tbody tr:hover { background: rgba(255,255,255,0.03); }
+tbody tr.rank-1 { background: rgba(255,255,255,0.04); }
+tbody tr.rank-1 td.rank-cell { color: var(--on-primary); font-size: 22px; }
+tbody tr.rank-2 td.rank-cell { color: var(--on-primary-mute); }
+tbody tr.rank-3 td.rank-cell { color: var(--hairline-on-dark); }
+tbody td {
+  padding: 6px var(--sp-md);
+  white-space: nowrap;
+}
+td.rank-cell {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  width: 48px;
+  text-align: center;
+  color: var(--ink-mute);
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--canvas-night);
+}
+thead th:first-child {
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 3;
+}
+td.rank-cell.top3 { color: var(--on-primary); }
+.team-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-sm);
+  overflow: hidden;
+}
+.team-cell img {
+  width: 36px !important;
+  height: 36px !important;
+  max-width: 36px;
+  max-height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  flex-shrink: 0;
+  background: #fff;
+  padding: 2px;
+}
+.team-text { display: flex; flex-direction: column; }
+.team-name { font-weight: 700; }
+.team-college { color: var(--ink-mute); font-size: 12px; }
+td.num-cell {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+td.num-cell.highlight {
+  color: var(--on-primary);
+  font-weight: 700;
+}
+
+/* ── Ladder Board ── */
+.ladder {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--sp-md);
+  margin-bottom: var(--sp-huge);
+}
+.ladder-card {
+  background: var(--canvas-night-soft);
+  border: 1px solid var(--hairline-on-dark);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-lg);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-md);
+  transition: border-color 0.2s;
+}
+.ladder-card:hover { border-color: var(--on-primary); }
+.ladder-card.rank-1 { border-color: var(--on-primary); border-width: 2px; background: rgba(255,255,255,0.04); }
+.ladder-card.rank-2 { border-color: var(--on-primary-mute); }
+.ladder-card.rank-3 { border-color: var(--hairline-on-dark); }
+.ladder-card.rank-1 .ladder-rank { color: var(--on-primary); font-size: 40px; }
+.ladder-card.rank-2 .ladder-rank { color: var(--on-primary-mute); }
+.ladder-card.rank-3 .ladder-rank { color: var(--hairline-on-dark); }
+.ladder-logo {
+  width: 40px !important;
+  height: 40px !important;
+  max-width: 40px;
+  max-height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  flex-shrink: 0;
+}
+.ladder-rank {
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: 0.96px;
+  color: var(--ink-mute);
+  min-width: 48px;
+  text-align: center;
+}
+.ladder-rank.top3 { color: var(--on-primary); }
+.ladder-info { flex: 1; min-width: 0; }
+.ladder-team { font-weight: 700; font-size: 16px; }
+.ladder-detail {
+  color: var(--ink-mute);
+  font-size: 13px;
+  margin-top: 2px;
+}
+.ladder-score {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.96px;
+  white-space: nowrap;
+}
+
+/* ── Tabs ── */
+.tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--hairline-on-dark);
+  margin-bottom: var(--sp-xl);
+}
+.tab-btn {
+  padding: var(--sp-sm) var(--sp-xl);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.17px;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.tab-btn:hover { color: var(--on-primary); }
+.tab-btn.active {
+  color: var(--on-primary);
+  border-bottom-color: var(--on-primary);
+}
+
+/* ── Footer ── */
+.footer {
+  padding: var(--sp-xxl) var(--sp-xxl);
+  border-top: 1px solid var(--hairline-on-dark);
+  text-align: center;
+  color: var(--ink-mute);
+  font-size: 13px;
+  letter-spacing: 0;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .hero h1 { font-size: 40px; }
+  .section-title { font-size: 32px; }
+  .container { padding: 0 var(--sp-md); }
+  .nav { padding: var(--sp-md); }
+  .nav-links { gap: var(--sp-md); }
+  .ladder { grid-template-columns: 1fr; }
+  .school-header {
+    flex-wrap: wrap;
+    gap: var(--sp-md);
+    align-items: flex-start;
+  }
+  .school-header .school-search {
+    flex-basis: 100%;
+    min-width: 0 !important;
+  }
+  .school-header .school-search input {
+    width: 100%;
+    min-width: 0 !important;
+  }
+}
+
+/* ── View Toggle ── */
+.view-toggle {
+  display: flex;
+  gap: var(--sp-xxs);
+  margin-bottom: var(--sp-md);
+}
+
+/* ── School Detail ── */
+.school-header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-xl);
+  margin-bottom: var(--sp-xl);
+}
+.school-logo {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #fff;
+  padding: 4px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.school-search-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 280px;
+  overflow-y: auto;
+  background: #1a1a1a;
+  border: 1px solid var(--hairline-on-dark);
+  border-radius: var(--radius-sm);
+  z-index: 100;
+  margin-top: 4px;
+}
+.school-search-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--on-primary);
+}
+.school-search-item:hover { background: rgba(255,255,255,0.1); }
+.radar-wrap {
+  display: flex;
+  justify-content: center;
+  margin: var(--sp-xl) 0;
+}
+.radar-wrap canvas {
+  max-width: 100%;
+  height: auto;
+  cursor: pointer;
+}
+.type-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--sp-lg);
+  flex-wrap: wrap;
+  gap: var(--sp-sm);
+}
+.type-detail-title {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.96px;
+}
+.rank-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--on-primary);
+  border: 1px solid var(--on-primary);
+  border-radius: var(--radius-pill);
+}
+.type-detail-grid {
+  display: grid;
+  gap: 1px;
+  background: var(--hairline-on-dark);
+  border: 1px solid var(--hairline-on-dark);
+  border-radius: var(--radius-sm);
+  max-height: 70vh;
+  overflow-y: auto;
+  overflow-x: auto;
+  margin-bottom: var(--sp-xl);
+}
+.type-detail-cell {
+  padding: var(--sp-sm) var(--sp-md);
+  background: var(--canvas-night-soft);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  min-width: 0;
+  white-space: nowrap;
+}
+.type-detail-cell.label {
+  color: var(--ink-mute);
+  font-size: 13px;
+  text-align: center;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+}
+.type-detail-cell.value {
+  text-align: center;
+  font-weight: 700;
+}
+.type-detail-cell.value.better {
+  color: var(--on-primary);
+}
+.type-detail-cell.value.muted {
+  color: var(--ink-mute);
+  font-weight: 400;
+}
+.type-detail-cell.col-header {
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.96px;
+  text-transform: uppercase;
+  color: var(--on-primary);
+  background: rgba(255,255,255,0.04);
+  text-align: center;
+  padding: var(--sp-xs) var(--sp-md);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.type-detail-cell.corner-cell {
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 3;
+}
+.type-detail-cell.first-col-header {
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 3;
+}
+.type-detail-note {
+  color: var(--ink-mute);
+  font-size: 12px;
+  letter-spacing: 0.32px;
+  margin-bottom: var(--sp-xl);
+}
+.type-detail-section {
+  border: 1px solid var(--hairline-on-dark);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-xl);
+  margin-bottom: var(--sp-xl);
+}
+
+/* ── Compare Page ── */
+.compare-slot {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-sm);
+  padding: var(--sp-sm) 0;
+  flex-wrap: wrap;
+}
+.compare-select {
+  padding: 8px 12px;
+  background: var(--canvas-night-soft);
+  color: var(--on-primary);
+  border: 1px solid var(--hairline-on-dark);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-body);
+  font-size: 13px;
+  cursor: pointer;
+  outline: none;
+  min-width: 120px;
+  -webkit-appearance: none;
+}
+.compare-select:focus { border-color: var(--on-primary); }
+.compare-select option { background: #1a1a1a; color: #fff; }
+.compare-remove {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: none;
+  border: 1px solid var(--hairline-on-dark);
+  color: var(--ink-mute);
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.compare-remove:hover { border-color: #e74c3c; color: #e74c3c; }
+.compare-reorder {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: none;
+  border: 1px solid var(--hairline-on-dark);
+  color: var(--ink-mute);
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.compare-reorder:hover { border-color: var(--on-primary); color: var(--on-primary); }
+.compare-school-logo {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #fff;
+  padding: 2px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.compare-header-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+}
+.compare-header-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #fff;
+  padding: 3px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+/* ── Stats Summary ── */
+.stats-summary {
+  display: flex;
+  gap: var(--sp-xl);
+  padding: var(--sp-xl) 0;
+  flex-wrap: wrap;
+}
+.stat-item {
+  display: flex;
+  flex-direction: column;
+}
+.stat-value {
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: 0.96px;
+}
+.stat-label {
+  font-size: 12px;
+  letter-spacing: 0.96px;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav class="nav">
+  <div class="nav-logo">RM Ladder</div>
+  <div class="nav-links">
+    <a href="#ladder" class="active">天梯榜</a>
+    <a href="#data">数据查询</a>
+    <a href="#compare">数据对比</a>
+    <a href="#school">战队详情</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <h1 id="heroTitle">RoboMaster<br>2026 天梯榜</h1>
+  <p>各赛区 · 各兵种 · 全维度数据排名</p>
+</section>
+
+<div class="container">
+
+  <!-- Stats Summary -->
+  <div class="stats-summary" id="statsSummary"></div>
+
+  <!-- Ladder Section -->
+  <section id="ladder">
+    <h2 class="section-title">天梯榜</h2>
+    <div class="filter-bar" id="ladderFilters"></div>
+    <div class="ladder" id="ladderBoard" style="margin-bottom:var(--sp-xs)"></div>
+    <div id="ladderNote" style="color:var(--ink-mute);font-size:12px;letter-spacing:0.96px;margin-bottom:var(--sp-huge);"></div>
+  </section>
+
+  <!-- Data Section -->
+  <section id="data">
+    <h2 class="section-title">数据查询</h2>
+    <div class="search-wrap">
+      <input type="text" class="search-input" id="searchInput" placeholder="搜索队名或学校...">
+    </div>
+    <div class="filter-bar" id="dataFilters"></div>
+    <div class="table-wrap">
+      <table>
+        <thead id="tableHead"></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- School Detail Section -->
+  <section id="schoolDetail" style="display:none;padding-top:120px">
+    <a href="#ladder" class="pill" style="margin-bottom:var(--sp-xl);display:inline-flex;align-items:center;gap:8px;text-decoration:none">← 返回榜单</a>
+    <div id="schoolHeader"></div>
+    <div id="schoolZoneFilter"></div>
+    <div id="schoolRadarWrap" class="radar-wrap"></div>
+    <div id="schoolTypeDetail" style="display:none"></div>
+  </section>
+
+  <!-- Compare Section -->
+  <section id="compareSection" style="display:none;padding-top:120px">
+    <h2 class="section-title">数据对比</h2>
+    <div id="compareTypeFilter" style="text-align:center;margin-bottom:var(--sp-md)"></div>
+    <div id="compareSlots"></div>
+    <div id="compareAddBtn" style="margin:var(--sp-md) 0">
+      <button class="pill" onclick="addCompareSlot()">+ 添加对比项</button>
+    </div>
+    <div id="compareResult"></div>
+  </section>
+
+</div>
+
+<footer class="footer" id="footer">
+  RM Ladder — RoboMaster 数据可视化
+</footer>
+
+<script>
+// ── Field Mapping ──
+const FIELD_MAP = {
+  eaSmallHitRate: '小弹丸命中率',
+  eagHurt: '场均伤害量',
+  eaKDA: 'KDA',
+  eagKdaScore: 'KDA评分',
+  matchLargeEnergyActRoundsAvg: '大能量机关平均激活环数',
+  gkDamage: '场均关键伤害',
+  gKillCount: '场均击杀数',
+  eaBigHitRate: '大弹丸命中率',
+  eaSnipeCnt: '场均狙击次数',
+  etDartOutpostCnt: '累计命中前哨站数',
+  etDartFixedCnt: '累计命中基地固定目标数',
+  etDartRDFixCnt: '累计命中基地随机固定目标数',
+  etDartRDMoveCnt: '累计命中基地随机移动目标数',
+  etDartEndMoveCnt: '累计命中基地末端移动目标数',
+  eaRadarMarkerTime: '局均易伤时长',
+  eaRadarDebuffDmg: '局均易伤伤害',
+  eaRadarParseSuccCnt: '解析成功次数',
+  eaRadarCounterTime: '反制时长',
+  eaExchangeEcon: '兑换经济',
+  avgMineTime: '兑矿时长',
+  avgMineDiff: '均兑矿等级',
+  avgShootNum: '平均射击次数',
+  eaAssembleEcon: '局均装配经济',
+  eaAssembleSuccCnt: '局均装配成功次数',
+  avgAssembleDiff: '均装配等级',
+};
+
+// ── Robot type display names ──
+const TYPE_NAMES = {
+  Infantry: '步兵',
+  Hero: '英雄',
+  Sapper: '工程',
+  Airplane: '无人机',
+  Guard: '哨兵',
+  Radar: '雷达',
+  Dart: '飞镖',
+};
+
+// ── Fields active per robot type (defaults) ──
+const TYPE_FIELDS_DEFAULT = {
+  Infantry: ['eaSmallHitRate','eagHurt','gkDamage','eaKDA','eagKdaScore','gKillCount','matchLargeEnergyActRoundsAvg'],
+  Hero: ['eaBigHitRate','eagHurt','gkDamage','eaKDA','eagKdaScore','eaSnipeCnt','gKillCount'],
+  Sapper: ['eaExchangeEcon','avgMineTime','avgMineDiff'],
+  Airplane: ['eaSmallHitRate','eagHurt','gkDamage','eaKDA','eagKdaScore','avgShootNum','gKillCount'],
+  Guard: ['eaSmallHitRate','eagHurt','gkDamage','eaKDA','eagKdaScore','gKillCount'],
+  Radar: ['eaRadarMarkerTime','eaRadarDebuffDmg'],
+  Dart: ['etDartOutpostCnt','etDartFixedCnt','etDartRDFixCnt','etDartRDMoveCnt','gkDamage','gKillCount'],
+};
+
+// ── Ladder: composite score per type (defaults) ──
+const LADDER_FIELDS_DEFAULT = {
+  Infantry: { field: 'eagKdaScore', label: 'KDA评分' },
+  Hero: { field: 'gkDamage', label: '场均关键伤害' },
+  Sapper: { field: 'eaExchangeEcon', label: '兑换经济' },
+  Airplane: { field: 'eagHurt', label: '场均伤害量' },
+  Guard: { field: 'eagHurt', label: '场均伤害量' },
+  Radar: { field: 'eaRadarMarkerTime', label: '局均易伤时长' },
+  Dart: { field: 'gkDamage', label: '场均关键伤害' },
+};
+
+// ── Per-year config ──
+const YEAR_CONFIG = {
+  '2025': {
+    file: 'static/robot_data_2025.json',
+    excludedZones: ['574', '575'],
+    subRegionalIds: ['565', '566', '567'],
+    typeFields: TYPE_FIELDS_DEFAULT,
+    ladderFields: LADDER_FIELDS_DEFAULT,
+  },
+  '2026': {
+    file: 'static/robot_data_2026.json',
+    excludedZones: [],
+    subRegionalIds: [],
+    typeFields: {
+      ...TYPE_FIELDS_DEFAULT,
+      Sapper: ['eaAssembleEcon','eaAssembleSuccCnt','avgAssembleDiff'],
+      Radar: ['eaRadarMarkerTime','eaRadarDebuffDmg','eaRadarParseSuccCnt','eaRadarCounterTime'],
+      Dart: ['etDartOutpostCnt','etDartFixedCnt','etDartRDFixCnt','etDartRDMoveCnt','etDartEndMoveCnt','gkDamage','gKillCount'],
+    },
+    ladderFields: {
+      ...LADDER_FIELDS_DEFAULT,
+      Sapper: { field: 'eaAssembleEcon', label: '局均装配经济' },
+    },
+  },
+};
+
+const DATA_CACHE = {};
+const YEAR_ORDER = ['2026', '2025'];
+let currentYear = '2026';
+let DATA = null;
+let currentZone = 'all';
+let currentType = 'Infantry';
+let ladderZone = 'all';
+let ladderType = 'Infantry';
+let sortField = null;
+let sortDir = -1; // -1 = desc
+
+// School detail state
+let schoolCollege = '';
+let schoolType = '';
+let schoolZone = 'all'; // zone for radar chart ranking context
+let detailCompareZones = []; // zones selected for type detail comparison
+let detailYears = []; // years selected for cross-year comparison
+
+// ── Load Data ──
+async function loadData(year) {
+  if (DATA_CACHE[year]) return DATA_CACHE[year];
+  const cfg = YEAR_CONFIG[year];
+  const resp = await fetch(cfg.file);
+  const data = await resp.json();
+  DATA_CACHE[year] = data;
+  return data;
+}
+
+// ── Hash Router ──
+function handleRoute() {
+  const hash = window.location.hash || '#ladder';
+  // Update nav active state
+  const navBase = hash.startsWith('#school') ? '#school' : (hash === '#compare' ? '#compare' : (hash === '#data' ? '#data' : '#ladder'));
+  document.querySelectorAll('.nav-links a').forEach(a => {
+    a.classList.toggle('active', a.getAttribute('href') === navBase);
+  });
+  const heroEl = document.querySelector('.hero');
+  const statsEl = document.getElementById('statsSummary');
+  const ladderEl = document.getElementById('ladder');
+  const dataEl = document.getElementById('data');
+  const schoolEl = document.getElementById('schoolDetail');
+  const compareEl = document.getElementById('compareSection');
+
+  if (hash.startsWith('#school')) {
+    heroEl.style.display = 'none';
+    statsEl.style.display = 'none';
+    ladderEl.style.display = 'none';
+    dataEl.style.display = 'none';
+    schoolEl.style.display = 'block';
+    compareEl.style.display = 'none';
+
+    if (hash.includes('?')) {
+      const params = new URLSearchParams(hash.split('?')[1]);
+      schoolCollege = decodeURIComponent(params.get('college') || '');
+      schoolType = params.get('type') || '';
+      const year = params.get('year') || currentYear;
+
+      if (year !== currentYear) {
+        currentYear = year;
+        DATA = null;
+      }
+      loadData(year).then(data => {
+        DATA = data;
+        if (year !== currentYear) currentYear = year;
+        renderSchoolDetail();
+      });
+    } else {
+      // Pure #school — show page without a specific school
+      schoolCollege = '';
+      schoolType = '';
+      loadData(currentYear).then(data => {
+        DATA = data;
+        renderSchoolDetail();
+      });
+    }
+  } else if (hash === '#compare') {
+    heroEl.style.display = 'none';
+    statsEl.style.display = 'none';
+    ladderEl.style.display = 'none';
+    dataEl.style.display = 'none';
+    schoolEl.style.display = 'none';
+    compareEl.style.display = 'block';
+
+    if (!DATA) {
+      loadData(currentYear).then(data => {
+        DATA = data;
+        renderComparePage();
+      });
+    } else {
+      renderComparePage();
+    }
+  } else {
+    heroEl.style.display = '';
+    statsEl.style.display = '';
+    ladderEl.style.display = '';
+    dataEl.style.display = '';
+    schoolEl.style.display = 'none';
+    compareEl.style.display = 'none';
+
+    if (!DATA) {
+      loadData(currentYear).then(data => {
+        DATA = data;
+        renderMainView(hash);
+      });
+    } else {
+      renderMainView(hash);
+    }
+  }
+}
+
+function renderMainView(hash) {
+  renderSummary();
+  renderFilters();
+  renderLadder();
+  renderTable();
+  const section = hash.replace('#', '');
+  if (section === 'data') {
+    document.getElementById('data').scrollIntoView({ behavior: 'instant' });
+  }
+}
+
+function navigateToSchool(collegeName, type, year) {
+  const params = new URLSearchParams();
+  params.set('college', collegeName);
+  if (type) params.set('type', type);
+  if (year) params.set('year', year);
+  window.location.hash = '#school?' + params.toString();
+}
+
+// ── School Detail Data Helpers ──
+function zoneHasData(zone) {
+  // Zone hasn't started if no robot has any non-zero stat
+  for (const t of zone.teams) {
+    for (const r of t.robots) {
+      for (const key of Object.keys(r)) {
+        if (typeof r[key] === 'number' && r[key] > 0 && key !== 'id' && key !== 'robotNumber') {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+function getCollegeTeams(collegeName) {
+  const cfg = YEAR_CONFIG[currentYear];
+  const results = [];
+  DATA.zones.forEach(z => {
+    if (cfg.excludedZones.includes(z.zoneId)) return;
+    z.teams.forEach(t => {
+      if (t.collegeName === collegeName) {
+        results.push({ zoneId: z.zoneId, zoneName: z.zoneName, team: t });
+      }
+    });
+  });
+  return results;
+}
+
+function getRobotRank(robotType, zoneId) {
+  const cfg = YEAR_CONFIG[currentYear];
+  const ladderCfg = cfg.ladderFields[robotType];
+  let robots;
+  if (zoneId === 'all') {
+    robots = getRobots('all', robotType);
+  } else {
+    robots = getRobots(zoneId, robotType);
+  }
+  robots.sort((a, b) => (b[ladderCfg.field] || 0) - (a[ladderCfg.field] || 0));
+  return { total: robots.length, sorted: robots, field: ladderCfg.field, label: ladderCfg.label };
+}
+
+function getCollegeRobotInZone(collegeName, zoneId, type) {
+  const teams = getCollegeTeams(collegeName);
+  const teamInZone = teams.find(t => t.zoneId === zoneId);
+  if (!teamInZone) return null;
+  return teamInZone.team.robots.find(r => r.type === type) || null;
+}
+
+// ── School Detail Rendering ──
+function getAllColleges(year) {
+  const yearData = DATA_CACHE[year] || DATA;
+  if (!yearData) return [];
+  const cfg = YEAR_CONFIG[year];
+  const colleges = new Set();
+  yearData.zones.forEach(z => {
+    if (cfg.excludedZones.includes(z.zoneId)) return;
+    z.teams.forEach(t => colleges.add(t.collegeName));
+  });
+  return [...colleges].sort();
+}
+
+function selectSchool(college) {
+  navigateToSchool(college, '', currentYear);
+}
+
+function renderSchoolSearch(containerId, colleges, selected) {
+  const html = `
+    <div class="school-search" style="position:relative;min-width:200px">
+      <input id="schoolSearchInput" class="compare-select" autocomplete="off"
+        placeholder="搜索学校..." value="${esc(selected)}"
+        oninput="filterSchoolList()" onfocus="filterSchoolList()"
+        style="min-width:200px;cursor:text">
+      <input type="hidden" id="schoolSearchValue" value="${esc(selected)}">
+      <div id="schoolSearchDropdown" class="school-search-dropdown" style="display:none"></div>
+    </div>
+  `;
+  document.getElementById(containerId).innerHTML = html;
+  window._schoolSearchColleges = colleges;
+}
+
+function filterSchoolList() {
+  const input = document.getElementById('schoolSearchInput');
+  const dropdown = document.getElementById('schoolSearchDropdown');
+  const query = input.value.toLowerCase();
+  const filtered = window._schoolSearchColleges.filter(c => c.toLowerCase().includes(query));
+  if (filtered.length === 0 || (filtered.length === 1 && filtered[0] === input.value)) {
+    dropdown.style.display = 'none';
+    return;
+  }
+  dropdown.innerHTML = filtered.map(c =>
+    `<div class="school-search-item" onmousedown="event.preventDefault();selectSchool('${esc(c)}')">${esc(c)}</div>`
+  ).join('');
+  dropdown.style.display = 'block';
+}
+
+// Close dropdown on outside click
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.school-search')) {
+    const dd = document.getElementById('schoolSearchDropdown');
+    if (dd) dd.style.display = 'none';
+  }
+});
+
+function renderSchoolDetail() {
+  if (!schoolCollege) {
+    // No school selected — show search picker
+    const colleges = getAllColleges(currentYear);
+    document.getElementById('schoolHeader').innerHTML = `
+      <div style="display:flex;align-items:center;gap:var(--sp-md);flex-wrap:wrap">
+        <span style="color:var(--ink-mute);font-size:14px">选择学校</span>
+        <div class="school-search" style="position:relative;min-width:240px">
+          <input id="schoolSearchInput" class="compare-select" autocomplete="off"
+            placeholder="搜索学校..." value=""
+            oninput="filterSchoolList()" onfocus="filterSchoolList()"
+            style="min-width:240px;cursor:text;font-size:15px">
+          <div id="schoolSearchDropdown" class="school-search-dropdown" style="display:none;min-width:240px"></div>
+        </div>
+      </div>
+    `;
+    window._schoolSearchColleges = colleges;
+    document.getElementById('schoolZoneFilter').innerHTML = '';
+    document.getElementById('schoolRadarWrap').innerHTML = '';
+    document.getElementById('schoolTypeDetail').style.display = 'none';
+    return;
+  }
+  const teams = getCollegeTeams(schoolCollege);
+  if (teams.length === 0) {
+    document.getElementById('schoolHeader').innerHTML = '<p style="color:var(--ink-mute)">未找到该学校的数据</p>';
+    return;
+  }
+
+  const logo = teams[0].team.collegeLogo;
+  const teamName = teams[0].team.name;
+  const zoneSummary = teams.map(t => t.zoneName).join(' · ');
+
+  const allColleges = getAllColleges(currentYear);
+  window._schoolSearchColleges = allColleges;
+
+  document.getElementById('schoolHeader').innerHTML = `
+    <div class="school-header">
+      <img class="school-logo" src="${esc(logo)}" alt="" width="64" height="64">
+      <div style="flex:1">
+        <h2 class="section-title" style="margin:0">${esc(schoolCollege)}</h2>
+        <div style="color:var(--ink-mute);font-size:14px">${esc(teamName)} · ${esc(zoneSummary)}</div>
+      </div>
+      <div class="school-search" style="position:relative;min-width:200px">
+        <input id="schoolSearchInput" class="compare-select" autocomplete="off"
+          placeholder="搜索学校..." value="${esc(schoolCollege)}"
+          oninput="filterSchoolList()" onfocus="filterSchoolList()"
+          style="min-width:200px;cursor:text;font-size:14px">
+        <div id="schoolSearchDropdown" class="school-search-dropdown" style="display:none;min-width:200px"></div>
+      </div>
+    </div>
+  `;
+
+  // Build zone list
+  const allZones = [{ zoneId: 'all', zoneName: '全部赛区' }, ...teams.map(t => ({ zoneId: t.zoneId, zoneName: t.zoneName }))];
+  if (!schoolZone || !allZones.find(z => z.zoneId === schoolZone)) {
+    schoolZone = teams[0].zoneId;
+  }
+
+  // Year + Zone filter bar (same style as main page)
+  document.getElementById('schoolZoneFilter').innerHTML = `
+    <div class="filter-bar" style="padding-top:0">
+      <div class="filter-group">
+        <span class="filter-label">年份</span>
+        ${YEAR_ORDER.map(y => `<button class="pill${y===currentYear?' active':''}" onclick="setSchoolYear('${y}',this)">${y}</button>`).join('')}
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">赛区</span>
+        ${allZones.map(z => `<button class="pill${z.zoneId===schoolZone?' active':''}" onclick="setSchoolZone('${z.zoneId}',this)">${esc(z.zoneName)}</button>`).join('')}
+      </div>
+    </div>
+  `;
+
+  renderRadarChart();
+
+  // If URL has type param, show detail
+  if (schoolType && TYPE_NAMES[schoolType]) {
+    showTypeDetail(schoolType);
+  } else {
+    document.getElementById('schoolTypeDetail').style.display = 'none';
+  }
+}
+
+function setSchoolYear(year, el) {
+  if (year === currentYear) return;
+  currentYear = year;
+  el.closest('.filter-group').querySelectorAll('.pill').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  DATA = null;
+  loadData(year).then(data => {
+    DATA = data;
+    detailCompareZones = [];
+    detailYears = [];
+    renderSchoolDetail();
+  });
+}
+
+function setSchoolZone(zoneId, el) {
+  schoolZone = zoneId;
+  detailCompareZones = [];
+  detailYears = [];
+  el.closest('.filter-group').querySelectorAll('.pill').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderRadarChart();
+  if (schoolType && TYPE_NAMES[schoolType]) {
+    renderTypeDetail();
+  }
+}
+
+// ── Radar Chart ──
+function renderRadarChart() {
+  const container = document.getElementById('schoolRadarWrap');
+  const types = Object.keys(TYPE_NAMES);
+
+  // Compute rank data for each type
+  const dataPoints = types.map(type => {
+    const ranked = getRobotRank(type, schoolZone);
+    let rank = ranked.total + 1; // default: worst (not found)
+    let value = 0;
+    for (let i = 0; i < ranked.sorted.length; i++) {
+      const r = ranked.sorted[i];
+      if (r.collegeName === schoolCollege) {
+        rank = i + 1;
+        value = r[ranked.field] || 0;
+        break;
+      }
+    }
+    return {
+      typeName: TYPE_NAMES[type],
+      typeKey: type,
+      rank,
+      total: ranked.total,
+      value,
+      label: ranked.label,
+    };
+  });
+
+  const size = Math.min(container.clientWidth || 500, 500);
+  container.innerHTML = `<canvas id="radarCanvas" width="${size*2}" height="${size*2}" style="width:${size}px;height:${size}px"></canvas>`;
+  const canvas = document.getElementById('radarCanvas');
+  drawRadarChart(canvas, dataPoints);
+
+  // Click handler
+  canvas.addEventListener('click', function(e) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const cx = (e.clientX - rect.left) * scaleX;
+    const cy = (e.clientY - rect.top) * scaleY;
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const angle = Math.atan2(cy - centerY, cx - centerX);
+    const numAxes = dataPoints.length;
+    const angleStep = (2 * Math.PI) / numAxes;
+    const startAngle = -Math.PI / 2;
+    let closestIdx = 0;
+    let closestDist = Infinity;
+    for (let i = 0; i < numAxes; i++) {
+      const axAngle = startAngle + i * angleStep;
+      let diff = Math.abs(angle - axAngle);
+      if (diff > Math.PI) diff = 2 * Math.PI - diff;
+      if (diff < closestDist) {
+        closestDist = diff;
+        closestIdx = i;
+      }
+    }
+    if (closestDist < angleStep / 2) {
+      schoolType = types[closestIdx];
+      showTypeDetail(schoolType);
+      // Update URL
+      navigateToSchool(schoolCollege, schoolType, currentYear);
+    }
+  });
+}
+
+function drawRadarChart(canvas, dataPoints) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width;
+  const h = canvas.height;
+  const cx = w / 2;
+  const cy = h / 2;
+  const outerR = Math.min(w, h) * 0.28;
+  const numAxes = 7;
+  const angleStep = (2 * Math.PI) / numAxes;
+  const startAngle = -Math.PI / 2;
+
+  ctx.clearRect(0, 0, w, h);
+
+  // Grid heptagons
+  const gridLevels = [1, 0.75, 0.5, 0.25];
+  gridLevels.forEach(level => {
+    ctx.beginPath();
+    for (let i = 0; i < numAxes; i++) {
+      const angle = startAngle + i * angleStep;
+      const x = cx + Math.cos(angle) * outerR * level;
+      const y = cy + Math.sin(angle) * outerR * level;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  });
+
+  // Axes
+  for (let i = 0; i < numAxes; i++) {
+    const angle = startAngle + i * angleStep;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(angle) * outerR, cy + Math.sin(angle) * outerR);
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  // Data polygon
+  const points = dataPoints.map((d, i) => {
+    const ratio = d.total > 1 ? (d.rank - 1) / (d.total - 1) : 0;
+    const r = outerR * (1 - ratio);
+    const angle = startAngle + i * angleStep;
+    return { x: cx + Math.cos(angle) * r, y: cy + Math.sin(angle) * r };
+  });
+
+  // Fill
+  ctx.beginPath();
+  points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(255,255,255,0.05)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Dots
+  points.forEach((p, i) => {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
+    ctx.fillStyle = schoolType === dataPoints[i].typeKey ? '#ffffff' : 'rgba(255,255,255,0.8)';
+    ctx.fill();
+  });
+
+  // Labels
+  const fontSize = Math.round(w / 36);
+  const labelFont = `${fontSize}px D-DIN, Arial, sans-serif`;
+  const boldFont = `bold ${fontSize}px D-DIN-Bold, D-DIN, Arial, sans-serif`;
+
+  dataPoints.forEach((d, i) => {
+    const angle = startAngle + i * angleStep;
+    const labelR = outerR + fontSize * 3.5;
+    const lx = cx + Math.cos(angle) * labelR;
+    const ly = cy + Math.sin(angle) * labelR;
+
+    const isHighlighted = schoolType === d.typeKey;
+    ctx.font = isHighlighted ? boldFont : labelFont;
+    ctx.fillStyle = isHighlighted ? '#ffffff' : '#5a5a5f';
+    ctx.textAlign = Math.abs(Math.cos(angle)) < 0.1 ? 'center' : Math.cos(angle) > 0 ? 'left' : 'right';
+    ctx.textBaseline = Math.abs(Math.sin(angle)) < 0.1 ? 'middle' : Math.sin(angle) > 0 ? 'top' : 'bottom';
+
+    ctx.fillText(`${d.typeName} #${d.rank}`, lx, ly);
+  });
+}
+
+function drawCompareRadarChart(canvas, slotData) {
+  // slotData: [{ label, color, typeRanks: [{ typeKey, typeName, rank, total }] }, ...]
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width;
+  const h = canvas.height;
+  const cx = w / 2;
+  const cy = h / 2;
+  const outerR = Math.min(w, h) * 0.18;
+  const numAxes = slotData[0]?.typeRanks?.length || 7;
+  const angleStep = (2 * Math.PI) / numAxes;
+  const startAngle = -Math.PI / 2;
+
+  ctx.clearRect(0, 0, w, h);
+
+  // Grid heptagons
+  const gridLevels = [1, 0.75, 0.5, 0.25];
+  gridLevels.forEach(level => {
+    ctx.beginPath();
+    for (let i = 0; i < numAxes; i++) {
+      const angle = startAngle + i * angleStep;
+      const x = cx + Math.cos(angle) * outerR * level;
+      const y = cy + Math.sin(angle) * outerR * level;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  });
+
+  // Axes
+  for (let i = 0; i < numAxes; i++) {
+    const angle = startAngle + i * angleStep;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(angle) * outerR, cy + Math.sin(angle) * outerR);
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  // Data polygons — one per slot
+  slotData.forEach(slot => {
+    const points = slot.typeRanks.map((d, i) => {
+      const angle = startAngle + i * angleStep;
+      if (typeof d.rank !== 'number' || typeof d.total !== 'number') {
+        return { x: cx + Math.cos(angle) * outerR, y: cy + Math.sin(angle) * outerR, skip: true };
+      }
+      const ratio = d.total > 1 ? (d.rank - 1) / (d.total - 1) : 0;
+      const r = outerR * (1 - ratio);
+      return { x: cx + Math.cos(angle) * r, y: cy + Math.sin(angle) * r, skip: false };
+    });
+
+    const validCount = points.filter(p => !p.skip).length;
+    if (validCount >= 3) {
+      ctx.beginPath();
+      points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+      ctx.closePath();
+      ctx.fillStyle = slot.color.replace('1)', '0.08)');
+      ctx.fill();
+      ctx.strokeStyle = slot.color;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    // Dots
+    points.forEach(p => {
+      if (p.skip) return;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+      ctx.fillStyle = slot.color;
+      ctx.fill();
+    });
+  });
+
+  // Labels — type/field name + ranks on a single line
+  const fontSize = Math.round(w / 48);
+  const labelFont = `${fontSize}px D-DIN, Arial, sans-serif`;
+  const rankFont = `${fontSize - 1}px D-DIN, Arial, sans-serif`;
+  const axisCount = slotData[0]?.typeRanks?.length || 0;
+
+  for (let i = 0; i < axisCount; i++) {
+    const angle = startAngle + i * angleStep;
+    const labelR = outerR + fontSize * 0.8;
+    const lx = cx + Math.cos(angle) * labelR;
+    const ly = cy + Math.sin(angle) * labelR;
+
+    ctx.textBaseline = Math.abs(Math.sin(angle)) < 0.1 ? 'middle' : Math.sin(angle) > 0 ? 'top' : 'bottom';
+
+    // Build parts: "名称 #r1/t1 #r2/t2 ..."
+    const typeName = slotData[0].typeRanks[i]?.typeName || '';
+    const rankParts = slotData.map(slot => {
+      const tr = slot.typeRanks[i];
+      if (!tr || tr.rank === '-') return null;
+      return { text: `#${tr.rank}/${tr.total}`, color: slot.color };
+    }).filter(Boolean);
+
+    // Measure widths
+    ctx.font = labelFont;
+    const typeWidth = ctx.measureText(typeName).width;
+    ctx.font = rankFont;
+    const rankWidths = rankParts.map(p => ctx.measureText(p.text + ' ').width);
+    const totalWidth = typeWidth + rankWidths.reduce((a, b) => a + b, 0);
+
+    const cosA = Math.cos(angle);
+
+    if (Math.abs(cosA) < 0.1) {
+      // Top/bottom — center aligned
+      let drawX = lx - totalWidth / 2;
+      ctx.font = labelFont;
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'left';
+      ctx.fillText(typeName, drawX, ly);
+      drawX += typeWidth;
+      ctx.font = rankFont;
+      rankParts.forEach((part, pi) => {
+        ctx.fillStyle = part.color;
+        ctx.fillText(part.text + ' ', drawX, ly);
+        drawX += rankWidths[pi];
+      });
+    } else if (cosA > 0) {
+      // Right side — left aligned, extends right
+      let drawX = lx;
+      ctx.font = labelFont;
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'left';
+      ctx.fillText(typeName, drawX, ly);
+      drawX += typeWidth;
+      ctx.font = rankFont;
+      rankParts.forEach((part, pi) => {
+        ctx.fillStyle = part.color;
+        ctx.fillText(part.text + ' ', drawX, ly);
+        drawX += rankWidths[pi];
+      });
+    } else {
+      // Left side — right aligned, draw right-to-left
+      let drawX = lx;
+      for (let ri = rankParts.length - 1; ri >= 0; ri--) {
+        ctx.font = rankFont;
+        ctx.fillStyle = rankParts[ri].color;
+        ctx.textAlign = 'right';
+        ctx.fillText(' ' + rankParts[ri].text, drawX, ly);
+        drawX -= rankWidths[ri];
+      }
+      ctx.font = labelFont;
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'right';
+      ctx.fillText(typeName, drawX, ly);
+    }
+  }
+
+  // Legend
+  const legendY = h - 20;
+  const legendFontSize = Math.round(w / 44);
+  ctx.font = `${legendFontSize}px D-DIN, Arial, sans-serif`;
+  const legendItems = slotData.map(s => s.label);
+  const totalWidth = legendItems.reduce((sum, label) => sum + ctx.measureText(label).width + 40, 0);
+  let lx = (w - totalWidth) / 2;
+  slotData.forEach(slot => {
+    ctx.fillStyle = slot.color;
+    ctx.beginPath();
+    ctx.arc(lx + 6, legendY, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(slot.label, lx + 16, legendY);
+    lx += ctx.measureText(slot.label).width + 40;
+  });
+}
+
+// ── Type Detail ──
+// Cross-year field aliases: 2026 field -> 2025 equivalent for comparison
+const FIELD_YEAR_ALIASES = { eaAssembleEcon: 'eaExchangeEcon' };
+// Reverse: 2025 field -> 2026 equivalent
+const FIELD_YEAR_ALIASES_REV = {};
+for (const [k, v] of Object.entries(FIELD_YEAR_ALIASES)) FIELD_YEAR_ALIASES_REV[v] = k;
+
+function getRobotFieldValue(robot, field, year) {
+  if (!robot) return null;
+  // Check if this field is valid for the given year
+  if (year) {
+    const cfg = YEAR_CONFIG[year];
+    const type = robot.type;
+    const validFields = cfg?.typeFields?.[type] || [];
+    if (validFields.includes(field)) return robot[field] ?? null;
+    // Field not valid for this year — check alias
+    const alias = FIELD_YEAR_ALIASES[field];
+    if (alias && validFields.includes(alias)) return robot[alias] ?? null;
+    const revAlias = FIELD_YEAR_ALIASES_REV[field];
+    if (revAlias && validFields.includes(revAlias)) return robot[revAlias] ?? null;
+  }
+  // Fallback: direct property check
+  if (Object.prototype.hasOwnProperty.call(robot, field)) return robot[field];
+  const alias = FIELD_YEAR_ALIASES[field];
+  if (alias && Object.prototype.hasOwnProperty.call(robot, alias)) return robot[alias];
+  return null;
+}
+
+function getFieldRank(type, field, zoneId, year, college) {
+  const targetCollege = college || schoolCollege;
+  const yearData = year === currentYear ? DATA : DATA_CACHE[year];
+  if (!yearData) return { rank: '-', total: '?' };
+  const cfg = YEAR_CONFIG[year];
+  const robots = [];
+  yearData.zones.forEach(z => {
+    if (cfg.excludedZones.includes(z.zoneId)) return;
+    if (zoneId !== 'all' && z.zoneId !== zoneId) return;
+    z.teams.forEach(t => {
+      t.robots.forEach(r => {
+        if (r.type === type) robots.push({ ...r, collegeName: t.collegeName });
+      });
+    });
+  });
+  robots.sort((a, b) => (getRobotFieldValue(b, field, year) || 0) - (getRobotFieldValue(a, field, year) || 0));
+  for (let i = 0; i < robots.length; i++) {
+    if (robots[i].collegeName === targetCollege) return { rank: i + 1, total: robots.length };
+  }
+  return { rank: '-', total: robots.length };
+}
+
+function showTypeDetail(typeName) {
+  schoolType = typeName;
+  detailYears = [];
+  const el = document.getElementById('schoolTypeDetail');
+  el.style.display = 'block';
+  renderTypeDetail();
+  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function renderTypeDetail() {
+  if (!schoolType || !TYPE_NAMES[schoolType]) return;
+  const el = document.getElementById('schoolTypeDetail');
+  const typeName = TYPE_NAMES[schoolType];
+  const cfg = YEAR_CONFIG[currentYear];
+
+  // Get all zones where this college has this robot type
+  const available = [];
+  DATA.zones.forEach(z => {
+    if (cfg.excludedZones.includes(z.zoneId)) return;
+    z.teams.forEach(t => {
+      if (t.collegeName === schoolCollege && t.robots.some(r => r.type === schoolType)) {
+        if (!available.find(a => a.zoneId === z.zoneId)) {
+          available.push({ zoneId: z.zoneId, zoneName: z.zoneName });
+        }
+      }
+    });
+  });
+
+  // Determine which zones to show columns for
+  let showZones = [];
+  if (schoolZone === 'all') {
+    showZones = available;
+  } else if (detailCompareZones.length > 0) {
+    showZones = available.filter(z => detailCompareZones.includes(z.zoneId));
+    if (showZones.length === 0) showZones = available.slice(0, 2);
+  } else {
+    showZones = available.filter(z => z.zoneId === schoolZone);
+    const other = available.find(z => z.zoneId !== schoolZone);
+    if (other) showZones.push(other);
+    if (showZones.length === 0) showZones = available.slice(0, 1);
+  }
+
+  // Build columns
+  const cols = showZones.map(z => {
+    const robot = (() => {
+      for (const zd of DATA.zones) {
+        if (zd.zoneId !== z.zoneId) continue;
+        for (const t of zd.teams) {
+          if (t.collegeName === schoolCollege) {
+            const r = t.robots.find(r => r.type === schoolType);
+            if (r) return r;
+          }
+        }
+      }
+      return null;
+    })();
+    const rankInfo = getFieldRank(schoolType, cfg.ladderFields[schoolType]?.field, z.zoneId, currentYear);
+    return { zoneId: z.zoneId, zoneName: z.zoneName, year: currentYear, robot, rank: rankInfo.rank, total: rankInfo.total };
+  });
+
+  if (cols.length === 0) {
+    el.innerHTML = '<div class="type-detail-section"><p style="color:var(--ink-mute)">无可用数据</p></div>';
+    el.style.display = 'block';
+    return;
+  }
+
+  const fields = cfg.typeFields[schoolType] || [];
+  const numCols = cols.length;
+  const gridCols = `160px repeat(${numCols}, 1fr)`;
+
+  // Rank badge
+  const primaryCol = cols[0];
+  const rankBadge = primaryCol.rank !== '-'
+    ? `<span class="rank-badge" style="margin-left:12px">#${primaryCol.rank} / ${primaryCol.total}</span>`
+    : '';
+
+  let html = `
+    <div class="type-detail-section">
+      <div class="type-detail-header">
+        <div>
+          <span class="type-detail-title">${typeName}</span>
+          ${rankBadge}
+        </div>
+      </div>
+      ${available.length > 1 ? `
+        <div style="margin-bottom:var(--sp-md)">
+          <div class="filter-group" id="compareZoneGroup">
+            <span class="filter-label">赛区</span>
+            ${available.map(z => `<button class="pill${showZones.some(s=>s.zoneId===z.zoneId)?' active':''}" data-zone="${z.zoneId}" onclick="setDetailCompareZone(this)">${esc(z.zoneName)}</button>`).join('')}
+          </div>
+        </div>
+      ` : ''}
+      <div class="type-detail-grid" style="grid-template-columns:${gridCols}">
+        <div class="type-detail-cell col-header corner-cell">指标</div>
+        ${cols.map(c => `<div class="type-detail-cell col-header">${esc(c.zoneName)}<br><span style="font-size:11px;opacity:0.6">#${c.rank}/${c.total}</span></div>`).join('')}
+        ${fields.map(f => {
+          const vals = cols.map(c => c.robot ? getRobotFieldValue(c.robot, f, currentYear) : null);
+          const ranks = cols.map(c => getFieldRank(schoolType, f, c.zoneId, currentYear));
+          return `<div class="type-detail-cell label">${esc(FIELD_MAP[f] || f)}</div>
+            ${vals.map((v, vi) => {
+              const muted = v === null || v === undefined;
+              let deltaHtml = '';
+              if (vi > 0 && vals[0] !== null && v !== null && typeof v === 'number' && typeof vals[0] === 'number') {
+                const diff = v - vals[0];
+                if (Math.abs(diff) > 0.001) {
+                  const isImproved = diff > 0;
+                  const color = isImproved ? '#2ecc71' : '#e74c3c';
+                  const arrow = isImproved ? '↑' : '↓';
+                  deltaHtml = `<span style="color:${color};font-size:11px;margin-left:4px">${arrow}${Math.abs(diff).toFixed(1)}</span>`;
+                }
+              }
+              const r = ranks[vi];
+              const rankHtml = r.rank !== '-' ? `<span style="font-size:11px;color:var(--ink-mute);display:block">#${r.rank}</span>` : '';
+              return `<div class="type-detail-cell value${muted?' muted':''}">${muted ? '-' : formatNum(v)}${deltaHtml}${rankHtml}</div>`;
+            }).join('')}`;
+        }).join('')}
+      </div>
+    </div>
+  `;
+
+  el.innerHTML = html;
+  el.style.display = 'block';
+}
+
+function setDetailCompareZone(el) {
+  const zoneId = el.getAttribute('data-zone');
+  el.classList.toggle('active');
+  // Update state from active pills
+  const group = document.getElementById('compareZoneGroup');
+  detailCompareZones = [];
+  group.querySelectorAll('.pill.active[data-zone]').forEach(b => {
+    detailCompareZones.push(b.getAttribute('data-zone'));
+  });
+  renderTypeDetail();
+}
+
+// ── Compare Page ──
+let compareSlots = [];
+let compareType = 'Infantry';
+
+function getCompareZones(year) {
+  const cfg = YEAR_CONFIG[year];
+  if (!cfg) return [];
+  const yearData = DATA_CACHE[year];
+  if (!yearData) return [];
+  return yearData.zones
+    .filter(z => !cfg.excludedZones.includes(z.zoneId) && z.teams.length > 0 && zoneHasData(z))
+    .map(z => ({ zoneId: z.zoneId, zoneName: z.zoneName }));
+}
+
+function getCompareColleges(year, zoneId) {
+  const yearData = DATA_CACHE[year];
+  if (!yearData) return [];
+  const cfg = YEAR_CONFIG[year];
+  const colleges = [];
+  yearData.zones.forEach(z => {
+    if (cfg.excludedZones.includes(z.zoneId)) return;
+    if (z.zoneId !== zoneId) return;
+    z.teams.forEach(t => {
+      if (!colleges.find(c => c.name === t.collegeName)) {
+        colleges.push({ name: t.collegeName, logo: t.collegeLogo });
+      }
+    });
+  });
+  return colleges;
+}
+
+function getCompareRobot(year, zoneId, college, type) {
+  const yearData = DATA_CACHE[year];
+  if (!yearData) return null;
+  for (const z of yearData.zones) {
+    if (z.zoneId !== zoneId) continue;
+    for (const t of z.teams) {
+      if (t.collegeName !== college) continue;
+      const r = t.robots.find(r => r.type === type);
+      if (r) return r;
+    }
+  }
+  return null;
+}
+
+function addCompareSlot() {
+  if (compareSlots.length >= 4) return;
+  const zones = getCompareZones(currentYear);
+  const zoneId = zones.length > 0 ? zones[0].zoneId : '';
+  const colleges = getCompareColleges(currentYear, zoneId);
+  const college = colleges.length > 0 ? colleges[Math.min(compareSlots.length, colleges.length - 1)].name : '';
+  compareSlots.push({ year: currentYear, zone: zoneId, college });
+  renderComparePage();
+}
+
+function removeCompareSlot(idx) {
+  compareSlots.splice(idx, 1);
+  renderComparePage();
+}
+
+function moveCompareSlot(idx, dir) {
+  const target = idx + dir;
+  if (target < 0 || target >= compareSlots.length) return;
+  const tmp = compareSlots[idx];
+  compareSlots[idx] = compareSlots[target];
+  compareSlots[target] = tmp;
+  renderComparePage();
+}
+function onCompareSlotChange(idx, field, value) {
+  const slot = compareSlots[idx];
+  slot[field] = value;
+
+  if (field === 'year') {
+    const zones = getCompareZones(value);
+    slot.zone = zones.length > 0 ? zones[0].zoneId : '';
+    const colleges = getCompareColleges(value, slot.zone);
+    slot.college = colleges.length > 0 ? colleges[0].name : '';
+  } else if (field === 'zone') {
+    const colleges = getCompareColleges(slot.year, value);
+    slot.college = colleges.length > 0 ? colleges[0].name : '';
+  }
+
+  renderComparePage();
+}
+
+function renderComparePage() {
+  // Initialize with 2 default slots
+  if (compareSlots.length === 0) {
+    const years = YEAR_ORDER;
+    for (const year of years) { loadData(year); }
+    const zones = getCompareZones(currentYear);
+    const z0 = zones.length > 0 ? zones[0].zoneId : '';
+    const colleges = getCompareColleges(currentYear, z0);
+    const c0 = colleges.length > 0 ? colleges[0].name : '';
+    const c1 = colleges.length > 1 ? colleges[1].name : c0;
+    compareSlots.push({ year: currentYear, zone: z0, college: c0 });
+    if (colleges.length > 1) {
+      compareSlots.push({ year: currentYear, zone: z0, college: c1 });
+    }
+  }
+
+  // Shared type selector (centered)
+  document.getElementById('compareTypeFilter').innerHTML = `
+    <div class="filter-group" style="display:inline-flex">
+      <span class="filter-label">兵种</span>
+      ${Object.entries(TYPE_NAMES).map(([k,v]) => `<button class="pill${k===compareType?' active':''}" onclick="setCompareType('${k}',this)">${v}</button>`).join('')}
+      <button class="pill${compareType==='all'?' active':''}" onclick="setCompareType('all',this)">全兵种</button>
+    </div>
+  `;
+
+  // Render slot selectors
+  const slotsEl = document.getElementById('compareSlots');
+  slotsEl.innerHTML = compareSlots.map((slot, idx) => {
+    const zones = getCompareZones(slot.year);
+    const colleges = getCompareColleges(slot.year, slot.zone);
+    const selCollege = colleges.find(c => c.name === slot.college);
+    const logo = selCollege?.logo || '';
+    return `<div class="compare-slot">
+      ${logo ? `<img src="${esc(logo)}" class="compare-school-logo" width="28" height="28" alt="">` : ''}
+      <select class="compare-select" onchange="onCompareSlotChange(${idx},'year',this.value)">
+        ${YEAR_ORDER.map(y => `<option value="${y}"${y===slot.year?' selected':''}>${y}</option>`).join('')}
+      </select>
+      <select class="compare-select" onchange="onCompareSlotChange(${idx},'zone',this.value)">
+        ${zones.map(z => `<option value="${z.zoneId}"${z.zoneId===slot.zone?' selected':''}>${z.zoneName}</option>`).join('')}
+      </select>
+      <select class="compare-select" onchange="onCompareSlotChange(${idx},'college',this.value)" style="min-width:180px">
+        ${colleges.map(c => `<option value="${esc(c.name)}"${c.name===slot.college?' selected':''}>${esc(c.name)}</option>`).join('')}
+      </select>
+      ${idx > 0 ? `<button class="compare-reorder" onclick="moveCompareSlot(${idx},-1)">↑</button>` : ''}
+      ${idx < compareSlots.length - 1 ? `<button class="compare-reorder" onclick="moveCompareSlot(${idx},1)">↓</button>` : ''}
+      ${compareSlots.length > 1 ? `<button class="compare-remove" onclick="removeCompareSlot(${idx})">×</button>` : ''}
+    </div>`;
+  }).join('');
+
+  // Hide add button when at 4 slots
+  const addBtn = document.getElementById('compareAddBtn');
+  if (addBtn) addBtn.style.display = compareSlots.length >= 4 ? 'none' : '';
+
+  renderCompareResult();
+}
+
+function setCompareType(type, el) {
+  compareType = type;
+  el.closest('.filter-group').querySelectorAll('.pill').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderCompareResult();
+}
+
+function renderCompareResult() {
+  const resultEl = document.getElementById('compareResult');
+
+  // ── All-types radar chart mode ──
+  if (compareType === 'all') {
+    if (compareSlots.length < 2) {
+      resultEl.innerHTML = '';
+      return;
+    }
+    const slotColors = [
+      'rgba(255,255,255,1)', 'rgba(46,204,113,1)', 'rgba(52,152,219,1)',
+      'rgba(231,76,60,1)', 'rgba(241,196,15,1)', 'rgba(155,89,182,1)', 'rgba(230,126,34,1)'
+    ];
+    const typeKeys = Object.keys(TYPE_NAMES);
+    const slotData = compareSlots.map((slot, si) => {
+      const zones = getCompareZones(slot.year);
+      const zn = zones.find(z => z.zoneId === slot.zone);
+      const zoneName = zn?.zoneName || slot.zone;
+      const typeRanks = typeKeys.map(typeKey => {
+        const cfg = YEAR_CONFIG[slot.year];
+        const ladderCfg = cfg?.ladderFields?.[typeKey];
+        if (!ladderCfg) return { typeKey, typeName: TYPE_NAMES[typeKey], rank: '-', total: '?' };
+        const ri = getFieldRank(typeKey, ladderCfg.field, slot.zone, slot.year, slot.college);
+        return { typeKey, typeName: TYPE_NAMES[typeKey], rank: ri.rank, total: ri.total };
+      });
+      const label = `${slot.college} · ${zoneName} ${slot.year}`;
+      return { label, color: slotColors[si % slotColors.length], typeRanks };
+    });
+
+    const cSize = 620;
+    resultEl.innerHTML = `
+      <div style="display:flex;justify-content:center;margin-top:var(--sp-lg)">
+        <canvas id="compareRadarCanvas" width="${cSize*2}" height="${cSize*2}" style="width:${cSize}px;height:${cSize}px"></canvas>
+      </div>
+    `;
+    const canvas = document.getElementById('compareRadarCanvas');
+    drawCompareRadarChart(canvas, slotData);
+    return;
+  }
+
+  // Collect resolved data for each slot
+  const resolved = compareSlots.map(slot => {
+    const robot = getCompareRobot(slot.year, slot.zone, slot.college, compareType);
+    const cfg = YEAR_CONFIG[slot.year];
+    const fields = cfg?.typeFields?.[compareType] || [];
+    const ladderCfg = cfg?.ladderFields?.[compareType];
+    let rank = '-', total = '?';
+    if (robot && ladderCfg) {
+      const ri = getFieldRank(compareType, ladderCfg.field, slot.zone, slot.year, slot.college);
+      rank = ri.rank; total = ri.total;
+    }
+    const zones = getCompareZones(slot.year);
+    const zn = zones.find(z => z.zoneId === slot.zone);
+    return { ...slot, robot, fields, rank, total, zoneName: zn?.zoneName || slot.zone };
+  });
+
+  // Only show if at least 2 slots have data
+  const validSlots = resolved.filter(s => s.robot);
+  if (validSlots.length < 2) {
+    resultEl.innerHTML = validSlots.length === 0 && compareSlots.every(s => !s.robot)
+      ? '<p style="color:var(--ink-mute)">请至少选择两个有效的对比项</p>'
+      : '';
+    return;
+  }
+
+  // Union of all fields
+  const fieldSet = new Set();
+  resolved.forEach(s => s.fields.forEach(f => fieldSet.add(f)));
+  const fields = [...fieldSet];
+
+  // Radar chart — one axis per field, ranked by field value within zone
+  const slotColors = [
+    'rgba(255,255,255,1)', 'rgba(46,204,113,1)', 'rgba(52,152,219,1)',
+    'rgba(231,76,60,1)', 'rgba(241,196,15,1)', 'rgba(155,89,182,1)', 'rgba(230,126,34,1)'
+  ];
+  const radarSlotData = resolved.map((s, si) => {
+    const fieldRanks = fields.map(f => {
+      const ri = s.robot ? getFieldRank(compareType, f, s.zone, s.year, s.college) : { rank: '-', total: '?' };
+      return { typeKey: f, typeName: FIELD_MAP[f] || f, rank: ri.rank, total: ri.total };
+    });
+    const label = `${s.college} · ${s.zoneName} ${s.year}`;
+    return { label, color: slotColors[si % slotColors.length], typeRanks: fieldRanks };
+  });
+  const cSize2 = 620;
+
+  const numCols = resolved.length;
+  const gridCols = `160px repeat(${numCols}, 1fr)`;
+
+  resultEl.innerHTML = `
+    <div style="display:flex;justify-content:center;margin-bottom:var(--sp-xl)">
+      <canvas id="compareRadarCanvas" width="${cSize2*2}" height="${cSize2*2}" style="width:${cSize2}px;height:${cSize2}px"></canvas>
+    </div>
+    <div class="type-detail-grid" style="grid-template-columns:${gridCols}">
+      <div class="type-detail-cell col-header corner-cell">指标</div>
+      ${resolved.map(s => {
+        const typeName = TYPE_NAMES[compareType] || compareType;
+        const colleges = getCompareColleges(s.year, s.zone);
+        const logo = colleges.find(c => c.name === s.college)?.logo || '';
+        const logoHtml = logo ? `<img src="${esc(logo)}" class="compare-header-logo" width="36" height="36" alt="">` : '';
+        const label = `${esc(s.college)}<br><span style="font-size:11px;opacity:0.75">${s.zoneName} · ${typeName} ${s.year}</span>`;
+        const rankHtml = s.rank !== '-' ? `<span style="font-size:11px;opacity:0.6">#${s.rank}/${s.total}</span>` : '';
+        return `<div class="type-detail-cell col-header"><div class="compare-header-inner">${logoHtml}<div>${label}<br>${rankHtml}</div></div></div>`;
+      }).join('')}
+      ${fields.map(f => {
+        const vals = resolved.map(s => s.robot ? getRobotFieldValue(s.robot, f, s.year) : null);
+        const ranks = resolved.map(s => s.robot ? getFieldRank(compareType, f, s.zone, s.year, s.college) : { rank: '-', total: '?' });
+        return `<div class="type-detail-cell label">${esc(FIELD_MAP[f] || f)}</div>
+          ${vals.map((v, vi) => {
+            const muted = v === null || v === undefined;
+            let deltaHtml = '';
+            if (vi > 0 && vals[0] !== null && v !== null && typeof v === 'number' && typeof vals[0] === 'number') {
+              const diff = v - vals[0];
+              if (Math.abs(diff) > 0.001) {
+                const color = diff > 0 ? '#2ecc71' : '#e74c3c';
+                const arrow = diff > 0 ? '↑' : '↓';
+                deltaHtml = `<span style="color:${color};font-size:11px;margin-left:4px">${arrow}${Math.abs(diff).toFixed(1)}</span>`;
+              }
+            }
+            // Rank with delta
+            const r = ranks[vi];
+            let rankHtml = '';
+            if (r.rank !== '-') {
+              let rankDelta = '';
+              if (vi > 0 && ranks[0].rank !== '-' && typeof r.rank === 'number' && typeof ranks[0].rank === 'number') {
+                const rDiff = ranks[0].rank - r.rank;
+                if (rDiff !== 0) {
+                  const rColor = rDiff > 0 ? '#2ecc71' : '#e74c3c';
+                  const rArrow = rDiff > 0 ? '↑' : '↓';
+                  rankDelta = `<span style="color:${rColor};margin-left:2px">${rArrow}${Math.abs(rDiff)}</span>`;
+                }
+              }
+              rankHtml = `<span style="font-size:11px;color:var(--ink-mute);display:block">#${r.rank}${rankDelta}</span>`;
+            }
+            return `<div class="type-detail-cell value${muted?' muted':''}">${muted ? '-' : formatNum(v)}${deltaHtml}${rankHtml}</div>`;
+          }).join('')}`;
+      }).join('')}
+    </div>
+  `;
+
+  const canvas2 = document.getElementById('compareRadarCanvas');
+  if (canvas2) drawCompareRadarChart(canvas2, radarSlotData);
+}
+
+// ── Init ──
+async function init() {
+  DATA = await loadData(currentYear);
+  handleRoute();
+}
+
+// ── Year Switch ──
+async function setYear(year, el) {
+  if (year === currentYear) return;
+  currentYear = year;
+  // Update year pills in both filter bars
+  document.querySelectorAll('.year-group').forEach(g => {
+    g.querySelectorAll('.pill').forEach(b => b.classList.remove('active'));
+  });
+  document.querySelectorAll(`.year-group .pill[data-year="${year}"]`).forEach(b => b.classList.add('active'));
+  // Reset zone selections
+  currentZone = 'all';
+  ladderZone = 'all';
+  sortField = null;
+  // Load data
+  DATA = await loadData(year);
+  // Update hero
+  document.getElementById('heroTitle').innerHTML = `RoboMaster<br>${year} 天梯榜`;
+  // Re-render
+  renderSummary();
+  renderFilters();
+  renderLadder();
+  renderTable();
+}
+
+// ── Summary ──
+function getActiveZones() {
+  const cfg = YEAR_CONFIG[currentYear];
+  return DATA.zones.filter(z => !cfg.excludedZones.includes(z.zoneId) && z.teams.length > 0 && zoneHasData(z));
+}
+
+function renderSummary() {
+  const zones = getActiveZones();
+  let teamCount = 0, robotCount = 0;
+  zones.forEach(z => {
+    teamCount += z.teams.length;
+    z.teams.forEach(t => { robotCount += t.robots.length; });
+  });
+  document.getElementById('statsSummary').innerHTML = `
+    <div class="stat-item"><span class="stat-value">${zones.length}</span><span class="stat-label">赛区</span></div>
+    <div class="stat-item"><span class="stat-value">${teamCount}</span><span class="stat-label">参赛队伍</span></div>
+    <div class="stat-item"><span class="stat-value">${robotCount}</span><span class="stat-label">机器人</span></div>
+  `;
+}
+
+// ── Filters ──
+function renderFilters() {
+  const cfg = YEAR_CONFIG[currentYear];
+  const zones = getActiveZones();
+  const subZones = zones.filter(z => cfg.subRegionalIds.includes(z.zoneId));
+  const otherZones = zones.filter(z => !cfg.subRegionalIds.includes(z.zoneId));
+  const hasSubregional = cfg.subRegionalIds.length > 0;
+  const dataFiltersEl = document.getElementById('dataFilters');
+  dataFiltersEl.innerHTML = `
+    <div class="filter-group year-group">
+      <span class="filter-label">年份</span>
+      ${YEAR_ORDER.map(y => `<button class="pill${y===currentYear?' active':''}" data-year="${y}" onclick="setYear('${y}',this)">${y}</button>`).join('')}
+    </div>
+    <div class="zone-filter">
+      <div class="filter-group">
+        <span class="filter-label">赛区</span>
+        <button class="pill active" data-zone="all" onclick="setDataZone('all',this)">全部</button>
+        ${hasSubregional ? '<button class="pill" data-zone="subregional" onclick="setDataZone(\'subregional\',this)">分区赛</button>' : ''}
+        ${otherZones.map(z => `<button class="pill" data-zone="${z.zoneId}" onclick="setDataZone('${z.zoneId}',this)">${z.zoneName}</button>`).join('')}
+      </div>
+      ${hasSubregional ? `<div class="sub-pills" id="dataSubPills">
+        <button class="pill active" data-zone="subregional" onclick="setDataSubZone('subregional',this)">所有赛区</button>
+        ${subZones.map(z => `<button class="pill" data-zone="${z.zoneId}" onclick="setDataSubZone('${z.zoneId}',this)">${z.zoneName}</button>`).join('')}
+      </div>` : '<div class="sub-pills" id="dataSubPills"></div>'}
+    </div>
+    <div class="filter-group">
+      <span class="filter-label">兵种</span>
+      ${Object.entries(TYPE_NAMES).map(([k,v]) => `<button class="pill${k===currentType?' active':''}" data-type="${k}" onclick="setDataType('${k}',this)">${v}</button>`).join('')}
+    </div>
+  `;
+
+  // Ladder filters
+  const ladderFiltersEl = document.getElementById('ladderFilters');
+  ladderFiltersEl.innerHTML = `
+    <div class="filter-group year-group">
+      <span class="filter-label">年份</span>
+      ${YEAR_ORDER.map(y => `<button class="pill${y===currentYear?' active':''}" data-year="${y}" onclick="setYear('${y}',this)">${y}</button>`).join('')}
+    </div>
+    <div class="zone-filter">
+      <div class="filter-group">
+        <span class="filter-label">赛区</span>
+        <button class="pill active" data-zone="all" onclick="setLadderZone('all',this)">全部</button>
+        ${hasSubregional ? '<button class="pill" data-zone="subregional" onclick="setLadderZone(\'subregional\',this)">分区赛</button>' : ''}
+        ${otherZones.map(z => `<button class="pill" data-zone="${z.zoneId}" onclick="setLadderZone('${z.zoneId}',this)">${z.zoneName}</button>`).join('')}
+      </div>
+      ${hasSubregional ? `<div class="sub-pills" id="ladderSubPills">
+        <button class="pill active" data-zone="subregional" onclick="setLadderSubZone('subregional',this)">所有赛区</button>
+        ${subZones.map(z => `<button class="pill" data-zone="${z.zoneId}" onclick="setLadderSubZone('${z.zoneId}',this)">${z.zoneName}</button>`).join('')}
+      </div>` : '<div class="sub-pills" id="ladderSubPills"></div>'}
+    </div>
+    <div class="filter-group">
+      <span class="filter-label">兵种</span>
+      ${Object.entries(TYPE_NAMES).map(([k,v]) => `<button class="pill${k===ladderType?' active':''}" data-type="${k}" onclick="setLadderType('${k}',this)">${v}</button>`).join('')}
+    </div>
+  `;
+}
+
+function setDataZone(zone, el) {
+  currentZone = zone;
+  const group = el.closest('.filter-group');
+  group.querySelectorAll('.pill').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  const subPills = document.getElementById('dataSubPills');
+  if (zone === 'subregional') {
+    subPills.classList.add('show');
+  } else {
+    subPills.classList.remove('show');
+    subPills.querySelectorAll('.pill').forEach(b => b.classList.remove('active'));
+  }
+  sortField = null;
+  renderTable();
+}
+
+function setDataSubZone(zone, el) {
+  currentZone = zone;
+  const subPills = document.getElementById('dataSubPills');
+  subPills.querySelectorAll('.pill').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  sortField = null;
+  renderTable();
+}
+
+function setDataType(type, el) {
+  currentType = type;
+  el.closest('.filter-group').querySelectorAll('.pill').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  sortField = null;
+  renderTable();
+}
+
+function setLadderZone(zone, el) {
+  ladderZone = zone;
+  const group = el.closest('.filter-group');
+  group.querySelectorAll('.pill').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  const subPills = document.getElementById('ladderSubPills');
+  if (zone === 'subregional') {
+    subPills.classList.add('show');
+  } else {
+    subPills.classList.remove('show');
+    subPills.querySelectorAll('.pill').forEach(b => b.classList.remove('active'));
+  }
+  renderLadder();
+}
+
+function setLadderSubZone(zone, el) {
+  ladderZone = zone;
+  const subPills = document.getElementById('ladderSubPills');
+  subPills.querySelectorAll('.pill').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderLadder();
+}
+
+function setLadderType(type, el) {
+  ladderType = type;
+  el.closest('.filter-group').querySelectorAll('.pill').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderLadder();
+}
+
+// ── Get robots list (flattened) ──
+function getRobots(zoneFilter, typeFilter) {
+  const cfg = YEAR_CONFIG[currentYear];
+  const robots = [];
+  DATA.zones.forEach(z => {
+    if (cfg.excludedZones.includes(z.zoneId)) return;
+    if (!z.teams || z.teams.length === 0) return;
+    if ((zoneFilter === 'all' || zoneFilter === 'subregional') && !zoneHasData(z)) return;
+    if (zoneFilter === 'subregional' && !cfg.subRegionalIds.includes(z.zoneId)) return;
+    else if (zoneFilter !== 'all' && zoneFilter !== 'subregional' && z.zoneId !== zoneFilter) return;
+    z.teams.forEach(t => {
+      t.robots.forEach(r => {
+        if (typeFilter !== 'all' && r.type !== typeFilter) return;
+        robots.push({
+          ...r,
+          zoneName: z.zoneName,
+          teamName: t.name,
+          collegeName: t.collegeName,
+          collegeLogo: t.collegeLogo,
+        });
+      });
+    });
+  });
+  return robots;
+}
+
+// ── Ladder Board ──
+function renderLadder() {
+  const robots = getRobots(ladderZone, ladderType);
+  const cfg = YEAR_CONFIG[currentYear].ladderFields[ladderType];
+  robots.sort((a, b) => (b[cfg.field] || 0) - (a[cfg.field] || 0));
+
+  const top = robots.slice(0, 9);
+  const el = document.getElementById('ladderBoard');
+  document.getElementById('ladderNote').textContent = `按「${cfg.label}」排名`;
+  el.innerHTML = top.map((r, i) => `
+    <div class="ladder-card${i < 3 ? ' rank-' + (i+1) : ''}" data-college="${esc(r.collegeName)}" style="cursor:pointer">
+      <div class="ladder-rank${i < 3 ? ' top3' : ''}">${i + 1}</div>
+      <img class="ladder-logo" src="${esc(r.collegeLogo)}" alt="" loading="lazy" width="40" height="40" style="background:#fff;padding:2px;border-radius:50%">
+      <div class="ladder-info">
+        <div class="ladder-team">${esc(r.teamName)}</div>
+        <div class="ladder-detail">${esc(r.collegeName)} · ${esc(r.zoneName)} · #${r.robotNumber}</div>
+      </div>
+      <div class="ladder-score">${formatNum(r[cfg.field])}</div>
+    </div>
+  `).join('');
+}
+
+// ── Data Table ──
+function renderTable() {
+  const robots = getRobots(currentZone, currentType);
+
+  // Determine columns
+  const typeFields = YEAR_CONFIG[currentYear].typeFields;
+  let fields;
+  if (currentType === 'all') {
+    // Show common fields
+    fields = ['eaKDA', 'eagKdaScore', 'gkDamage', 'gKillCount', 'eaSmallHitRate'];
+  } else {
+    fields = typeFields[currentType] || ['eaKDA', 'eagKdaScore'];
+  }
+
+  // Sort
+  if (sortField) {
+    robots.sort((a, b) => {
+      let va = a[sortField], vb = b[sortField];
+      if (typeof va === 'string' && va.includes('/')) {
+        // KDA string: parse kills
+        va = parseFloat(va.split('/')[0]) || 0;
+        vb = parseFloat(vb.split('/')[0]) || 0;
+      }
+      return ((va || 0) - (vb || 0)) * sortDir;
+    });
+  } else {
+    // Default sort by first numeric field desc
+    const defaultSort = fields.find(f => f !== 'eaKDA') || fields[0];
+    robots.sort((a, b) => ((b[defaultSort] || 0) - (a[defaultSort] || 0)));
+  }
+
+  // Header
+  const thead = document.getElementById('tableHead');
+  thead.innerHTML = `<tr>
+    <th style="width:48px;text-align:center">#</th>
+    <th>队伍</th>
+    ${currentZone === 'all' ? '<th>赛区</th>' : ''}
+    ${fields.map(f => `<th class="${sortField===f?'sorted':''}" style="text-align:right" onclick="toggleSort('${f}')">${FIELD_MAP[f]||f}<span class="sort-arrow">${sortField===f?(sortDir===1?'↑':'↓'):'↕'}</span></th>`).join('')}
+  </tr>`;
+
+  // Body
+  const tbody = document.getElementById('tableBody');
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  const filtered = search
+    ? robots.filter(r => r.teamName.toLowerCase().includes(search) || r.collegeName.toLowerCase().includes(search))
+    : robots;
+
+  tbody.innerHTML = filtered.slice(0, 200).map((r, i) => `<tr${i < 3 ? ' class="rank-' + (i+1) + '"' : ''} data-college="${esc(r.collegeName)}" data-type="${esc(currentType)}" style="cursor:pointer">
+    <td class="rank-cell${i<3?' top3':''}">${i+1}</td>
+    <td>
+      <div class="team-cell">
+        <img src="${esc(r.collegeLogo)}" alt="" loading="lazy" width="36" height="36" style="background:#fff;padding:2px;border-radius:50%">
+        <div class="team-text">
+          <div class="team-name">${esc(r.teamName)}</div>
+          <div class="team-college">${esc(r.collegeName)}</div>
+        </div>
+      </div>
+    </td>
+    ${currentZone === 'all' ? `<td style="color:var(--ink-mute);font-size:13px">${esc(r.zoneName)}</td>` : ''}
+    ${fields.map(f => `<td class="num-cell${f===fields[0]?' highlight':''}">${formatNum(r[f])}</td>`).join('')}
+  </tr>`).join('');
+}
+
+function toggleSort(field) {
+  if (sortField === field) {
+    sortDir *= -1;
+  } else {
+    sortField = field;
+    sortDir = -1;
+  }
+  renderTable();
+}
+
+// ── Helpers ──
+function formatNum(v) {
+  if (v === undefined || v === null) return '-';
+  if (typeof v === 'string') {
+    if (v.includes('/')) {
+      return v.split('/').map(n => parseFloat(n).toFixed(1)).join('/');
+    }
+    return v;
+  }
+  if (Number.isInteger(v)) return v.toLocaleString();
+  return v.toFixed(1);
+}
+
+function esc(s) {
+  if (!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Search ──
+document.getElementById('searchInput').addEventListener('input', () => renderTable());
+
+// ── Routing ──
+window.addEventListener('hashchange', handleRoute);
+
+// ── Click delegation for ladder cards & table rows ──
+document.getElementById('ladderBoard').addEventListener('click', function(e) {
+  const card = e.target.closest('.ladder-card[data-college]');
+  if (card) navigateToSchool(card.dataset.college, '', currentYear);
+});
+document.getElementById('tableBody').addEventListener('click', function(e) {
+  const row = e.target.closest('tr[data-college]');
+  if (row) navigateToSchool(row.dataset.college, row.dataset.type, currentYear);
+});
+
+// ── Init ──
+init();
+</script>
+</body>
+</html>

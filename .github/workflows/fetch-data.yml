@@ -1,0 +1,26 @@
+name: Fetch Robot Data
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download robot data
+        run: curl -fsSL -o static/robot_data_2026.json https://rm-static.djicdn.com/live_json/robot_data.json
+
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add static/robot_data_2026.json
+          git diff --cached --quiet || git commit -m "update robot data"
+          git push
