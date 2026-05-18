@@ -777,12 +777,15 @@ td.num-cell.highlight {
       <button class="pill" onclick="addCompareSlot()">+ 添加对比项</button>
     </div>
     <div id="compareResult"></div>
+    <div id="compareHistoryWrap" style="display:none;margin-top:var(--sp-xl)"></div>
   </section>
 
 </div>
 
 <footer class="footer" id="footer">
   RM Ladder — RoboMaster 数据可视化
+  <br>
+  <a href="https://github.com/MicDZ/RM_LADDER" target="_blank" rel="noopener" style="color:var(--ink-mute);text-decoration:none;font-size:12px;opacity:0.6;margin-top:4px;display:inline-block">GitHub</a>
 </footer>
 
 <script>
@@ -1989,6 +1992,7 @@ function setDetailCompareZone(el) {
 // ── Compare Page ──
 let compareSlots = [];
 let compareType = 'Infantry';
+let compareHistoryTab = 'score';
 
 function getCompareZones(year) {
   const cfg = YEAR_CONFIG[year];
@@ -2151,6 +2155,7 @@ function renderCompareResult() {
   if (compareType === 'all') {
     if (compareSlots.length < 2) {
       resultEl.innerHTML = '';
+      document.getElementById('compareHistoryWrap').style.display = 'none';
       return;
     }
     const slotColors = [
@@ -2186,6 +2191,7 @@ function renderCompareResult() {
     `;
     const canvas = document.getElementById('compareRadarCanvas');
     drawCompareRadarChart(canvas, slotData);
+    renderCompareHistory();
     return;
   }
 
@@ -2211,6 +2217,7 @@ function renderCompareResult() {
     resultEl.innerHTML = validSlots.length === 0 && compareSlots.every(s => !s.robot)
       ? '<p style="color:var(--ink-mute)">请至少选择两个有效的对比项</p>'
       : '';
+    document.getElementById('compareHistoryWrap').style.display = 'none';
     return;
   }
 
@@ -2290,6 +2297,194 @@ function renderCompareResult() {
 
   const canvas2 = document.getElementById('compareRadarCanvas');
   if (canvas2) drawCompareRadarChart(canvas2, radarSlotData);
+
+  renderCompareHistory();
+}
+
+// ── Compare History Chart ──
+const COMPARE_HISTORY_TABS = [
+  { key: 'score', label: '积分榜', data: () => scoreHistory },
+  { key: 'assessment', label: '完整形态', data: () => assessmentHistory },
+  { key: 'goldcoin', label: '初始金币', data: () => goldcoinHistory },
+];
+
+function setCompareHistoryTab(tab, el) {
+  compareHistoryTab = tab;
+  el.closest('.filter-group').querySelectorAll('.pill').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderCompareHistory();
+}
+
+function renderCompareHistory() {
+  const wrap = document.getElementById('compareHistoryWrap');
+  if (!wrap) return;
+  if (compareSlots.length < 2) {
+    wrap.style.display = 'none';
+    return;
+  }
+
+  // Determine which tabs have data
+  const available = COMPARE_HISTORY_TABS.filter(t => {
+    const d = t.data();
+    if (!d) return false;
+    return compareSlots.some(slot => {
+      const entries = d.schools[slot.college];
+      return entries && entries.length >= 2;
+    });
+  });
+
+  if (available.length === 0) {
+    wrap.style.display = 'none';
+    return;
+  }
+
+  if (!available.find(t => t.key === compareHistoryTab)) {
+    compareHistoryTab = available[0].key;
+  }
+
+  const activeTab = available.find(t => t.key === compareHistoryTab);
+  const dataObj = activeTab.data();
+
+  const slotColors = [
+    'rgba(255,255,255,0.9)', 'rgba(46,204,113,0.9)', 'rgba(52,152,219,0.9)',
+    'rgba(231,76,60,0.9)',
+  ];
+
+  // Collect entries per slot
+  const slotEntries = compareSlots.map((slot, si) => {
+    const entries = dataObj.schools[slot.college] || [];
+    return { college: slot.college, entries, color: slotColors[si % slotColors.length] };
+  }).filter(s => s.entries.length >= 2);
+
+  if (slotEntries.length < 2) {
+    wrap.style.display = 'none';
+    return;
+  }
+
+  wrap.style.display = 'block';
+
+  // Collect all years across slots
+  const allYears = new Set();
+  slotEntries.forEach(s => s.entries.forEach(e => allYears.add(e.year)));
+  const years = [...allYears].sort();
+
+  // Build label
+  const getLabel = (e) => {
+    if (activeTab.key === 'score') return `#${e.rank} ${e.score.toFixed(1)}`;
+    if (activeTab.key === 'goldcoin') {
+      const gc = e.goldcoin;
+      return `#${e.rank} ${gc > 0 ? '+' + gc : gc}`;
+    }
+    return `#${e.rank}`;
+  };
+
+  // Collect all ranks for scaling
+  const allRanks = [];
+  slotEntries.forEach(s => s.entries.forEach(e => allRanks.push(e.rank)));
+  const minRank = Math.min(...allRanks);
+  const maxRank = Math.max(...allRanks);
+  const rankRange = maxRank - minRank || 1;
+
+  const w = Math.min(wrap.clientWidth || 600, 600);
+  const h = 240;
+  const padL = 50, padR = 20, padT = 30, padB = 55;
+  const chartW = w - padL - padR;
+  const chartH = h - padT - padB;
+
+  // Legend
+  const legendHtml = slotEntries.map(s =>
+    `<span style="display:inline-flex;align-items:center;gap:4px;margin:0 8px"><span style="width:10px;height:3px;background:${s.color};display:inline-block"></span><span style="font-size:12px;color:rgba(255,255,255,0.7)">${esc(s.college)}</span></span>`
+  ).join('');
+
+  wrap.innerHTML = `
+    <div class="type-detail-section">
+      <div class="filter-group" style="margin-bottom:var(--sp-sm)">
+        ${available.map(t => `<button class="pill${t.key === compareHistoryTab ? ' active' : ''}" onclick="setCompareHistoryTab('${t.key}',this)">${t.label}</button>`).join('')}
+      </div>
+      <div style="text-align:center;margin-bottom:var(--sp-sm)">${legendHtml}</div>
+      <canvas id="compareHistoryCanvas" width="${w*2}" height="${h*2}" style="width:${w}px;height:${h}px;display:block;margin:0 auto"></canvas>
+    </div>
+  `;
+
+  const canvas = document.getElementById('compareHistoryCanvas');
+  const ctx = canvas.getContext('2d');
+  const cw = canvas.width;
+  const ch = canvas.height;
+  const cPadL = padL * 2, cPadR = padR * 2, cPadT = padT * 2, cPadB = padB * 2;
+  const cChartW = cw - cPadL - cPadR;
+  const cChartH = ch - cPadT - cPadB;
+
+  ctx.clearRect(0, 0, cw, ch);
+
+  const minR = minRank - rankRange * 0.1;
+  const maxR = Math.max(1, maxRank + rankRange * 0.1);
+  const rRange = maxR - minR;
+
+  // Grid lines
+  const gridSteps = 4;
+  for (let i = 0; i <= gridSteps; i++) {
+    const y = cPadT + (cChartH * i / gridSteps);
+    ctx.beginPath();
+    ctx.moveTo(cPadL, y);
+    ctx.lineTo(cPadL + cChartW, y);
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    const rankVal = Math.round(minR + (rRange * i / gridSteps));
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.font = '20px D-DIN, Arial, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`#${rankVal}`, cPadL - 8, y);
+  }
+
+  // Year labels on x-axis
+  years.forEach((year, i) => {
+    const x = cPadL + (cChartW * i / (years.length - 1));
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font = '20px D-DIN, Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(year, x, cPadT + cChartH + 8);
+  });
+
+  // Draw lines for each slot
+  slotEntries.forEach(slot => {
+    const points = years.map((year, i) => {
+      const entry = slot.entries.find(e => e.year === year);
+      const x = cPadL + (cChartW * i / (years.length - 1));
+      if (!entry) return null;
+      const y = cPadT + (cChartH * (entry.rank - minR) / rRange);
+      return { x, y, entry };
+    });
+
+    // Line (skip gaps)
+    ctx.beginPath();
+    let started = false;
+    points.forEach(p => {
+      if (!p) { started = false; return; }
+      if (!started) { ctx.moveTo(p.x, p.y); started = true; }
+      else ctx.lineTo(p.x, p.y);
+    });
+    ctx.strokeStyle = slot.color;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Points and labels
+    points.forEach(p => {
+      if (!p) return;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+      ctx.fillStyle = slot.color;
+      ctx.fill();
+
+      ctx.fillStyle = slot.color.replace('0.9', '0.7');
+      ctx.font = 'bold 16px D-DIN, Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(getLabel(p.entry), p.x, p.y - 8);
+    });
+  });
 }
 
 // ── Init ──
