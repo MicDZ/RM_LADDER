@@ -763,8 +763,8 @@ td.num-cell.highlight {
     <div id="schoolZoneFilter"></div>
     <div id="schoolRadarWrap" class="radar-wrap"></div>
     <p id="radarHint" style="text-align:center;color:var(--ink-mute);font-size:13px;margin-top:-8px;margin-bottom:var(--sp-lg);display:none">点击雷达图上的兵种节点查看具体数据</p>
-    <div id="scoreHistoryWrap" style="display:none;margin-bottom:var(--sp-xl)"></div>
-    <div id="assessmentHistoryWrap" style="display:none;margin-bottom:var(--sp-xl)"></div>
+    <div id="historyChartWrap" style="display:none;margin-bottom:var(--sp-xl)"></div>
+    <div id="schoolTypeFilter" style="display:none;text-align:center;margin-bottom:var(--sp-md)"></div>
     <div id="schoolTypeDetail" style="display:none"></div>
   </section>
 
@@ -912,6 +912,8 @@ let DATA = null;
 let forumReports = null;
 let scoreHistory = null;
 let assessmentHistory = null;
+let goldcoinHistory = null;
+let currentHistoryTab = 'score';
 let collegeLogos = {};
 let currentZone = 'all';
 let currentType = 'Infantry';
@@ -1180,8 +1182,8 @@ function renderSchoolDetail() {
     document.getElementById('schoolZoneFilter').innerHTML = '';
     document.getElementById('schoolRadarWrap').innerHTML = '';
     document.getElementById('schoolTypeDetail').style.display = 'none';
-    document.getElementById('scoreHistoryWrap').style.display = 'none';
-    document.getElementById('assessmentHistoryWrap').style.display = 'none';
+    document.getElementById('historyChartWrap').style.display = 'none';
+    document.getElementById('schoolTypeFilter').style.display = 'none';
     return;
   }
   const teams = getCollegeTeams(schoolCollege);
@@ -1240,8 +1242,8 @@ function renderSchoolDetail() {
   `;
 
   renderRadarChart();
-  renderScoreHistory();
-  renderAssessmentHistory();
+  renderHistoryChart();
+  renderSchoolTypeFilter();
 
   // If URL has type param, show detail
   if (schoolType && TYPE_NAMES[schoolType]) {
@@ -1438,18 +1440,42 @@ function drawRadarChart(canvas, dataPoints) {
   });
 }
 
-// ── Score History Chart ──
-function renderScoreHistory() {
-  const wrap = document.getElementById('scoreHistoryWrap');
-  if (!scoreHistory || !scoreHistory.schools[schoolCollege]) {
+// ── History Chart (tabbed: score / assessment / goldcoin) ──
+const HISTORY_TABS = [
+  { key: 'score', label: '积分榜', data: () => scoreHistory },
+  { key: 'assessment', label: '完整形态', data: () => assessmentHistory },
+  { key: 'goldcoin', label: '初始金币', data: () => goldcoinHistory },
+];
+
+function setHistoryTab(tab, el) {
+  currentHistoryTab = tab;
+  el.closest('.filter-group').querySelectorAll('.pill').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderHistoryChart();
+}
+
+function renderHistoryChart() {
+  const wrap = document.getElementById('historyChartWrap');
+
+  // Determine which tabs have data for this school
+  const available = HISTORY_TABS.filter(t => {
+    const d = t.data();
+    return d && d.schools[schoolCollege] && d.schools[schoolCollege].length >= 2;
+  });
+
+  if (available.length === 0) {
     wrap.style.display = 'none';
     return;
   }
-  const entries = scoreHistory.schools[schoolCollege];
-  if (entries.length < 2) {
-    wrap.style.display = 'none';
-    return;
+
+  // Ensure current tab is valid
+  if (!available.find(t => t.key === currentHistoryTab)) {
+    currentHistoryTab = available[0].key;
   }
+
+  const activeTab = available.find(t => t.key === currentHistoryTab);
+  const dataObj = activeTab.data();
+  const entries = dataObj.schools[schoolCollege];
 
   wrap.style.display = 'block';
   const w = Math.min(wrap.clientWidth || 600, 600);
@@ -1464,16 +1490,26 @@ function renderScoreHistory() {
   const maxRank = Math.max(...ranks);
   const rankRange = maxRank - minRank || 1;
 
+  // Build label for each point
+  const getLabel = (e) => {
+    if (activeTab.key === 'score') return `#${e.rank} ${e.score.toFixed(1)}`;
+    if (activeTab.key === 'goldcoin') {
+      const gc = e.goldcoin;
+      return `#${e.rank} ${gc > 0 ? '+' + gc : gc}`;
+    }
+    return `#${e.rank}`;
+  };
+
   wrap.innerHTML = `
     <div class="type-detail-section">
-      <div class="type-detail-header">
-        <span class="type-detail-title">积分榜历史</span>
+      <div class="filter-group" style="margin-bottom:var(--sp-md)">
+        ${available.map(t => `<button class="pill${t.key === currentHistoryTab ? ' active' : ''}" onclick="setHistoryTab('${t.key}',this)">${t.label}</button>`).join('')}
       </div>
-      <canvas id="scoreHistoryCanvas" width="${w*2}" height="${h*2}" style="width:${w}px;height:${h}px;display:block;margin:0 auto"></canvas>
+      <canvas id="historyChartCanvas" width="${w*2}" height="${h*2}" style="width:${w}px;height:${h}px;display:block;margin:0 auto"></canvas>
     </div>
   `;
 
-  const canvas = document.getElementById('scoreHistoryCanvas');
+  const canvas = document.getElementById('historyChartCanvas');
   const ctx = canvas.getContext('2d');
   const cw = canvas.width;
   const ch = canvas.height;
@@ -1483,7 +1519,6 @@ function renderScoreHistory() {
 
   ctx.clearRect(0, 0, cw, ch);
 
-  // Scale factor
   const minR = minRank - rankRange * 0.1;
   const maxR = Math.max(1, maxRank + rankRange * 0.1);
   const rRange = maxR - minR;
@@ -1498,7 +1533,6 @@ function renderScoreHistory() {
     ctx.strokeStyle = 'rgba(255,255,255,0.06)';
     ctx.lineWidth = 1;
     ctx.stroke();
-    // Rank label
     const rankVal = Math.round(minR + (rRange * i / gridSteps));
     ctx.fillStyle = 'rgba(255,255,255,0.35)';
     ctx.font = '20px D-DIN, Arial, sans-serif';
@@ -1511,7 +1545,7 @@ function renderScoreHistory() {
   const points = entries.map((e, i) => {
     const x = cPadL + (cChartW * i / (years.length - 1));
     const y = cPadT + (cChartH * (e.rank - minR) / rRange);
-    return { x, y, year: e.year, rank: e.rank, score: e.score };
+    return { x, y, entry: e };
   });
 
   // Line
@@ -1537,131 +1571,33 @@ function renderScoreHistory() {
     ctx.fillStyle = '#fff';
     ctx.fill();
 
-    // Year label
     ctx.fillStyle = 'rgba(255,255,255,0.5)';
     ctx.font = '20px D-DIN, Arial, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    ctx.fillText(p.year, p.x, cPadT + cChartH + 8);
+    ctx.fillText(p.entry.year, p.x, cPadT + cChartH + 8);
 
-    // Rank + score label above point
     ctx.fillStyle = 'rgba(255,255,255,0.8)';
     ctx.font = 'bold 20px D-DIN, Arial, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
-    ctx.fillText(`#${p.rank} ${p.score.toFixed(1)}`, p.x, p.y - 8);
+    ctx.fillText(getLabel(p.entry), p.x, p.y - 8);
   });
 }
 
-// ── Assessment History Chart ──
-function renderAssessmentHistory() {
-  const wrap = document.getElementById('assessmentHistoryWrap');
-  if (!assessmentHistory || !assessmentHistory.schools[schoolCollege]) {
-    wrap.style.display = 'none';
-    return;
-  }
-  const entries = assessmentHistory.schools[schoolCollege];
-  if (entries.length < 2) {
-    wrap.style.display = 'none';
-    return;
-  }
-
+// ── School Type Filter (pills above type detail) ──
+function renderSchoolTypeFilter() {
+  const wrap = document.getElementById('schoolTypeFilter');
+  if (!DATA) { wrap.style.display = 'none'; return; }
+  const cfg = YEAR_CONFIG[currentYear];
+  const types = Object.keys(cfg.ladderFields);
   wrap.style.display = 'block';
-  const w = Math.min(wrap.clientWidth || 600, 600);
-  const h = 220;
-  const padL = 50, padR = 20, padT = 30, padB = 40;
-  const chartW = w - padL - padR;
-  const chartH = h - padT - padB;
-
-  const years = entries.map(e => e.year);
-  const ranks = entries.map(e => e.rank);
-  const minRank = Math.min(...ranks);
-  const maxRank = Math.max(...ranks);
-  const rankRange = maxRank - minRank || 1;
-
   wrap.innerHTML = `
-    <div class="type-detail-section">
-      <div class="type-detail-header">
-        <span class="type-detail-title">完整形态考核排名</span>
-      </div>
-      <canvas id="assessmentHistoryCanvas" width="${w*2}" height="${h*2}" style="width:${w}px;height:${h}px;display:block;margin:0 auto"></canvas>
+    <div class="filter-group">
+      <span class="filter-label">兵种</span>
+      ${types.map(t => `<button class="pill${t === schoolType ? ' active' : ''}" onclick="showTypeDetail('${t}')">${TYPE_NAMES[t]}</button>`).join('')}
     </div>
   `;
-
-  const canvas = document.getElementById('assessmentHistoryCanvas');
-  const ctx = canvas.getContext('2d');
-  const cw = canvas.width;
-  const ch = canvas.height;
-  const cPadL = padL * 2, cPadR = padR * 2, cPadT = padT * 2, cPadB = padB * 2;
-  const cChartW = cw - cPadL - cPadR;
-  const cChartH = ch - cPadT - cPadB;
-
-  ctx.clearRect(0, 0, cw, ch);
-
-  const minR = minRank - rankRange * 0.1;
-  const maxR = Math.max(1, maxRank + rankRange * 0.1);
-  const rRange = maxR - minR;
-
-  // Grid lines
-  const gridSteps = 4;
-  for (let i = 0; i <= gridSteps; i++) {
-    const y = cPadT + (cChartH * i / gridSteps);
-    ctx.beginPath();
-    ctx.moveTo(cPadL, y);
-    ctx.lineTo(cPadL + cChartW, y);
-    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    const rankVal = Math.round(minR + (rRange * i / gridSteps));
-    ctx.fillStyle = 'rgba(255,255,255,0.35)';
-    ctx.font = '20px D-DIN, Arial, sans-serif';
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(`#${rankVal}`, cPadL - 8, y);
-  }
-
-  // Data points
-  const points = entries.map((e, i) => {
-    const x = cPadL + (cChartW * i / (years.length - 1));
-    const y = cPadT + (cChartH * (e.rank - minR) / rRange);
-    return { x, y, year: e.year, rank: e.rank, score: e.score };
-  });
-
-  // Line
-  ctx.beginPath();
-  points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
-  ctx.strokeStyle = 'rgba(255,255,255,0.7)';
-  ctx.lineWidth = 2;
-  ctx.stroke();
-
-  // Area fill
-  ctx.beginPath();
-  points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
-  ctx.lineTo(points[points.length-1].x, cPadT + cChartH);
-  ctx.lineTo(points[0].x, cPadT + cChartH);
-  ctx.closePath();
-  ctx.fillStyle = 'rgba(255,255,255,0.03)';
-  ctx.fill();
-
-  // Points and labels
-  points.forEach(p => {
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
-    ctx.fillStyle = '#fff';
-    ctx.fill();
-
-    ctx.fillStyle = 'rgba(255,255,255,0.5)';
-    ctx.font = '20px D-DIN, Arial, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillText(p.year, p.x, cPadT + cChartH + 8);
-
-    ctx.fillStyle = 'rgba(255,255,255,0.8)';
-    ctx.font = 'bold 20px D-DIN, Arial, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'bottom';
-    ctx.fillText(`#${p.rank}`, p.x, p.y - 8);
-  });
 }
 
 function drawCompareRadarChart(canvas, slotData) {
@@ -1889,6 +1825,11 @@ function showTypeDetail(typeName, scroll) {
   schoolType = typeName;
   detailYears = [];
   document.getElementById('radarHint').style.display = 'none';
+  // Update active pill in type filter
+  const filterWrap = document.getElementById('schoolTypeFilter');
+  if (filterWrap) {
+    filterWrap.querySelectorAll('.pill').forEach(b => b.classList.toggle('active', b.textContent === TYPE_NAMES[typeName]));
+  }
   const el = document.getElementById('schoolTypeDetail');
   el.style.display = 'block';
   renderTypeDetail();
@@ -2395,10 +2336,21 @@ async function loadAssessmentHistory() {
   return assessmentHistory;
 }
 
+async function loadGoldcoinHistory() {
+  if (goldcoinHistory) return goldcoinHistory;
+  try {
+    const resp = await fetch('static/goldcoin_history.json');
+    goldcoinHistory = await resp.json();
+  } catch (e) {
+    goldcoinHistory = null;
+  }
+  return goldcoinHistory;
+}
+
 async function init() {
   await loadCollegeLogos();
   DATA = await loadData(currentYear);
-  await Promise.all([loadForumReports(), loadScoreHistory(), loadAssessmentHistory()]);
+  await Promise.all([loadForumReports(), loadScoreHistory(), loadAssessmentHistory(), loadGoldcoinHistory()]);
   // Pre-load all years for search
   for (const y of YEAR_ORDER) { loadData(y); }
   handleRoute();
