@@ -571,6 +571,59 @@ td.num-cell.highlight {
   padding: var(--sp-xl);
   margin-bottom: var(--sp-xl);
 }
+.type-detail-cell.value.clickable {
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.type-detail-cell.value.clickable:hover {
+  border-color: var(--on-primary);
+  background: rgba(255,255,255,0.04);
+}
+.dist-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(6px);
+}
+.dist-panel {
+  background: #0a0a0a;
+  border: 1px solid #3a3a3f;
+  border-radius: 8px;
+  padding: 24px;
+  position: relative;
+  max-width: 640px;
+  width: 90vw;
+}
+.dist-close {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: var(--ink-mute);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px 8px;
+  line-height: 1;
+}
+.dist-close:hover { color: var(--on-primary); }
+.dist-title {
+  font-family: 'D-DIN-Bold', 'Arial Narrow', Arial, sans-serif;
+  font-size: 14px;
+  letter-spacing: 0.96px;
+  color: var(--on-primary);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.dist-subtitle {
+  font-size: 12px;
+  color: var(--ink-mute);
+  margin-bottom: 16px;
+}
 .forum-report-list {
   display: flex;
   flex-direction: column;
@@ -908,6 +961,9 @@ const YEAR_CONFIG = {
   },
 };
 
+// Fields where lower value = better rank (ascending sort)
+const ASC_FIELDS = new Set(['avgMineTime', 'avgMineDiff', 'avgAssembleDiff']);
+
 const DATA_CACHE = {};
 const YEAR_ORDER = ['2026', '2025', '2024'];
 let currentYear = '2026';
@@ -1098,7 +1154,11 @@ function getRobotRank(robotType, zoneId) {
   } else {
     robots = getRobots(zoneId, robotType);
   }
-  robots.sort((a, b) => (b[ladderCfg.field] || 0) - (a[ladderCfg.field] || 0));
+  if (ASC_FIELDS.has(ladderCfg.field)) {
+    robots.sort((a, b) => (a[ladderCfg.field] || 0) - (b[ladderCfg.field] || 0));
+  } else {
+    robots.sort((a, b) => (b[ladderCfg.field] || 0) - (a[ladderCfg.field] || 0));
+  }
   return { total: robots.length, sorted: robots, field: ladderCfg.field, label: ladderCfg.label };
 }
 
@@ -1817,7 +1877,11 @@ function getFieldRank(type, field, zoneId, year, college) {
       });
     });
   });
-  robots.sort((a, b) => (getRobotFieldValue(b, field, year) || 0) - (getRobotFieldValue(a, field, year) || 0));
+  if (ASC_FIELDS.has(field)) {
+    robots.sort((a, b) => (getRobotFieldValue(a, field, year) || 0) - (getRobotFieldValue(b, field, year) || 0));
+  } else {
+    robots.sort((a, b) => (getRobotFieldValue(b, field, year) || 0) - (getRobotFieldValue(a, field, year) || 0));
+  }
   for (let i = 0; i < robots.length; i++) {
     if (robots[i].collegeName === targetCollege) return { rank: i + 1, total: robots.length };
   }
@@ -1943,7 +2007,7 @@ function renderTypeDetail() {
               }
               const r = ranks[vi];
               const rankHtml = r.rank !== '-' ? `<span style="font-size:11px;color:var(--ink-mute);display:block">#${r.rank}</span>` : '';
-              return `<div class="type-detail-cell value${muted?' muted':''}">${muted ? '-' : formatNum(v)}${deltaHtml}${rankHtml}</div>`;
+              return `<div class="type-detail-cell value${muted?' muted':' clickable'}" ${muted ? '' : `onclick="openDistribution('${esc(f)}','${esc(cols[vi].zoneId)}')"`}>${muted ? '-' : formatNum(v)}${deltaHtml}${rankHtml}</div>`;
             }).join('')}`;
         }).join('')}
       </div>
@@ -1975,6 +2039,170 @@ function renderTypeDetail() {
 
   el.innerHTML = html;
   el.style.display = 'block';
+}
+
+function openDistribution(field, zoneId) {
+  const cfg = YEAR_CONFIG[currentYear];
+  const robots = getRobots(zoneId, schoolType);
+  const values = robots.map(r => ({ collegeName: r.collegeName, value: getRobotFieldValue(r, field, currentYear) }))
+    .filter(d => d.value !== null && d.value !== undefined && typeof d.value === 'number');
+  if (values.length < 2) return;
+
+  const myEntry = values.find(d => d.collegeName === schoolCollege);
+  const myValue = myEntry ? myEntry.value : null;
+  const fieldLabel = FIELD_MAP[field] || field;
+  const zone = DATA.zones.find(z => z.zoneId === zoneId);
+  const zoneName = zone ? zone.zoneName : '';
+
+  // Create overlay
+  const overlay = document.createElement('div');
+  overlay.className = 'dist-overlay';
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
+  const displayW = Math.min(600, window.innerWidth * 0.85);
+  const displayH = 320;
+  overlay.innerHTML = `
+    <div class="dist-panel">
+      <button class="dist-close" onclick="this.closest('.dist-overlay').remove()">&times;</button>
+      <div class="dist-title">${esc(fieldLabel)} 分布</div>
+      <div class="dist-subtitle">${esc(schoolCollege)} · ${esc(TYPE_NAMES[schoolType])} · ${esc(zoneName)} · ${values.length} 支队伍</div>
+      <canvas id="distCanvas" width="${displayW*2}" height="${displayH*2}" style="width:${displayW}px;height:${displayH}px"></canvas>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  const canvas = document.getElementById('distCanvas');
+  drawDistributionChart(canvas, values, myValue, fieldLabel);
+}
+
+function drawDistributionChart(canvas, values, myValue, fieldLabel) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  const padL = 60, padR = 30, padT = 20, padB = 60;
+  const chartW = w - padL - padR;
+  const chartH = h - padT - padB;
+
+  const allVals = values.map(d => d.value);
+  const minVal = Math.min(...allVals);
+  const maxVal = Math.max(...allVals);
+
+  // If all values are the same, show a simple message
+  if (maxVal - minVal < 0.001) {
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font = '24px D-DIN, Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('所有队伍数值相同: ' + (myValue !== null ? myValue.toFixed(1) : '-'), w / 2, h / 2);
+    return;
+  }
+
+  // Create bins
+  const numBins = Math.min(12, Math.max(5, Math.ceil(values.length / 3)));
+  const binWidth = (maxVal - minVal) / numBins;
+  const bins = new Array(numBins).fill(0);
+  let myBinIndex = -1;
+
+  values.forEach(d => {
+    let idx = binWidth > 0 ? Math.floor((d.value - minVal) / binWidth) : 0;
+    if (idx >= numBins) idx = numBins - 1;
+    bins[idx]++;
+    if (myValue !== null && d.collegeName === schoolCollege) {
+      myBinIndex = idx;
+    }
+  });
+
+  const maxCount = Math.max(...bins, 1);
+  const barW = chartW / numBins;
+
+  // Y-axis grid lines
+  const ySteps = Math.min(4, maxCount);
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 1;
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.font = '20px D-DIN, Arial, sans-serif';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  for (let i = 0; i <= ySteps; i++) {
+    const count = Math.round(maxCount * i / ySteps);
+    const y = padT + chartH - (chartH * count / maxCount);
+    ctx.beginPath();
+    ctx.moveTo(padL, y);
+    ctx.lineTo(w - padR, y);
+    ctx.stroke();
+    ctx.fillText(count.toString(), padL - 10, y);
+  }
+
+  // Draw bars
+  bins.forEach((count, i) => {
+    const x = padL + i * barW + 2;
+    const barH = chartH * count / maxCount;
+    const y = padT + chartH - barH;
+    const isMyBin = i === myBinIndex;
+
+    ctx.fillStyle = isMyBin ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.1)';
+    ctx.fillRect(x, y, barW - 4, barH);
+    ctx.strokeStyle = isMyBin ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = isMyBin ? 2 : 1;
+    ctx.strokeRect(x, y, barW - 4, barH);
+
+    // Count label above bar
+    if (count > 0) {
+      ctx.fillStyle = isMyBin ? '#ffffff' : 'rgba(255,255,255,0.5)';
+      ctx.font = isMyBin ? 'bold 20px D-DIN, Arial, sans-serif' : '18px D-DIN, Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(count.toString(), x + (barW - 4) / 2, y - 6);
+    }
+  });
+
+  // X-axis labels (bin ranges)
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.font = '18px D-DIN, Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  for (let i = 0; i < numBins; i++) {
+    const binStart = minVal + i * binWidth;
+    const x = padL + i * barW + barW / 2;
+    ctx.fillText(binStart.toFixed(1), x, padT + chartH + 8);
+  }
+  // Last bin end label
+  const lastX = padL + numBins * barW;
+  ctx.fillText(maxVal.toFixed(1), lastX, padT + chartH + 8);
+
+  // My value marker (vertical dashed line)
+  if (myValue !== null) {
+    const ratio = (myValue - minVal) / (maxVal - minVal);
+    const mx = padL + ratio * chartW;
+
+    ctx.setLineDash([8, 6]);
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(mx, padT);
+    ctx.lineTo(mx, padT + chartH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Value label at the top
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 22px D-DIN, Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(formatNum(myValue), mx, padT - 4);
+  }
+
+  // Y-axis label
+  ctx.save();
+  ctx.translate(16, padT + chartH / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.font = '18px D-DIN, Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('队伍数', 0, 0);
+  ctx.restore();
 }
 
 function setDetailCompareZone(el) {
@@ -2753,7 +2981,11 @@ function getRobots(zoneFilter, typeFilter) {
 function renderLadder() {
   const robots = getRobots(ladderZone, ladderType);
   const cfg = YEAR_CONFIG[currentYear].ladderFields[ladderType];
-  robots.sort((a, b) => (b[cfg.field] || 0) - (a[cfg.field] || 0));
+  if (ASC_FIELDS.has(cfg.field)) {
+    robots.sort((a, b) => (a[cfg.field] || 0) - (b[cfg.field] || 0));
+  } else {
+    robots.sort((a, b) => (b[cfg.field] || 0) - (a[cfg.field] || 0));
+  }
 
   const top = robots.slice(0, 9);
   const el = document.getElementById('ladderBoard');
@@ -2797,9 +3029,13 @@ function renderTable() {
       return ((va || 0) - (vb || 0)) * sortDir;
     });
   } else {
-    // Default sort by first numeric field desc
+    // Default sort by first numeric field desc (asc for ASC_FIELDS)
     const defaultSort = fields.find(f => f !== 'eaKDA') || fields[0];
-    robots.sort((a, b) => ((b[defaultSort] || 0) - (a[defaultSort] || 0)));
+    if (ASC_FIELDS.has(defaultSort)) {
+      robots.sort((a, b) => ((a[defaultSort] || 0) - (b[defaultSort] || 0)));
+    } else {
+      robots.sort((a, b) => ((b[defaultSort] || 0) - (a[defaultSort] || 0)));
+    }
   }
 
   // Header
@@ -2840,7 +3076,7 @@ function toggleSort(field) {
     sortDir *= -1;
   } else {
     sortField = field;
-    sortDir = -1;
+    sortDir = ASC_FIELDS.has(field) ? 1 : -1;
   }
   renderTable();
 }
