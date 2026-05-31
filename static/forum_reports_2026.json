@@ -7,7 +7,7 @@
           "url": "https://bbs.robomaster.com/article/1883887",
           "author": "fsk",
           "date": "2026-05-06",
-          "likes": 11
+          "likes": 13
         },
         {
           "title": "[RM2025步兵机器人开源]-吉林大学-TARS-Go战队",
@@ -37,7 +37,7 @@
           "url": "https://bbs.robomaster.com/article/716388",
           "author": "杨名扬",
           "date": "2025-10-18",
-          "likes": 13
+          "likes": 14
         },
         {
           "title": "【RM2025-工程机器人自定义控制器及附属无线串口开源】吉林大学 TARS_Go战队",
@@ -89,7 +89,7 @@
           "url": "https://bbs.robomaster.com/article/1883640",
           "author": "YAO",
           "date": "2026-04-26",
-          "likes": 1
+          "likes": 2
         }
       ],
       "无人机": [
@@ -121,7 +121,7 @@
           "url": "https://bbs.robomaster.com/article/715241",
           "author": "Taylor",
           "date": "2025-05-15",
-          "likes": 29
+          "likes": 30
         },
         {
           "title": "华北理工大学Horizon工程组培训开源",
@@ -287,7 +287,7 @@
           "url": "https://bbs.robomaster.com/article/349122",
           "author": "李柯轩",
           "date": "2024-12-22",
-          "likes": 54
+          "likes": 55
         }
       ]
     },
@@ -307,7 +307,7 @@
           "url": "https://bbs.robomaster.com/article/349122",
           "author": "李柯轩",
           "date": "2024-12-22",
-          "likes": 54
+          "likes": 55
         }
       ]
     },
@@ -339,7 +339,7 @@
           "url": "https://bbs.robomaster.com/article/43539",
           "author": "LI-JH",
           "date": "2024-09-11",
-          "likes": 40
+          "likes": 42
         },
         {
           "title": "【技术报告-中南大学FYT战队-RM2024步兵开源】中南大学技术报告",
@@ -496,7 +496,7 @@
           "url": "https://bbs.robomaster.com/article/1401227",
           "author": "Moliai",
           "date": "2026-02-01",
-          "likes": 11
+          "likes": 12
         },
         {
           "title": "[5.8s四级矿] RM2025-香港科技大学-ENTERPRIZE战队轮式机械臂工程开源",
@@ -510,7 +510,7 @@
           "url": "https://bbs.robomaster.com/article/48014",
           "author": "港科工程",
           "date": "2024-09-27",
-          "likes": 39
+          "likes": 40
         },
         {
           "title": "【RM2024-功率控制算法开源（含舵轮，轮腿，全自动调参）】香港科技大学ENTERPRIZE战队",
@@ -556,7 +556,7 @@
           "url": "https://bbs.robomaster.com/article/764738",
           "author": "Allen_htl",
           "date": "2025-08-12",
-          "likes": 34
+          "likes": 36
         },
         {
           "title": "【RM2025-超级电容硬件开源】香港科技大学（广州）【更新软件】",
@@ -570,7 +570,7 @@
           "url": "https://bbs.robomaster.com/article/55593",
           "author": "港科工程",
           "date": "2024-10-25",
-          "likes": 25
+          "likes": 26
         },
         {
           "title": "【RM2024-功率控制算法开源（含舵轮，轮腿，全自动调参）】香港科技大学ENTERPRIZE战队",
@@ -623,7 +623,7 @@
           "url": "https://bbs.robomaster.com/article/55593",
           "author": "港科工程",
           "date": "2024-10-25",
-          "likes": 25
+          "likes": 26
         },
         {
           "title": "【RM2024-低成本空中机器人开源】 香港科技大学ENTERPRIZE战队",
@@ -646,14 +646,14 @@
           "url": "https://bbs.robomaster.com/article/55593",
           "author": "港科工程",
           "date": "2024-10-25",
-          "likes": 25
+          "likes": 26
         },
         {
           "title": "【香港科技大学】-RM2024赛季上下位机高速（收发各2M）通讯方案开源",
           "url": "https://bbs.robomaster.com/article/54198",
           "author": "fallengold",
           "date": "2024-09-22",
-          "likes": 23
+          "likes": 24
         },
         {
           "title": "【RM2024-G4主控板硬件开源】香港科技大学ENTERPRIZE战队",
@@ -669,7 +669,7 @@
           "url": "https://bbs.robomaster.com/article/48014",
           "author": "港科工程",
           "date": "2024-09-27",
-          "likes": 39
+          "likes": 40
         }
       ]
     },
@@ -680,7 +680,7 @@
           "url": "https://bbs.robomaster.com/article/1401227",
           "author": "Moliai",
           "date": "2026-02-01",
-          "likes": 11
+          "likes": 12
         }
       ],
       "步兵": [
@@ -772,7 +772,7 @@
           "url": "https://bbs.robomaster.com/article/1438280",
           "author": "wzhh",
           "date": "2026-01-20",
-          "likes": 45
+          "likes": 46
         },
         {
           "title": "【RM2021-中心供弹英雄机械开源】北京理工大学",
@@ -795,7 +795,7 @@
           "url": "https://bbs.robomaster.com/article/1438280",
           "author": "wzhh",
           "date": "2026-01-20",
-          "likes": 45
+          "likes": 46
         }
       ],
       "英雄": [
@@ -863,7 +863,7 @@
           "url": "https://bbs.robomaster.com/article/857264",
           "author": "voyager",
           "date": "2025-11-23",
-          "likes": 44
+          "likes": 45
         }
       ],
       "英雄": [
@@ -892,21 +892,21 @@
           "url": "https://bbs.robomaster.com/article/816172",
           "author": "C.C",
           "date": "2025-11-01",
-          "likes": 90
+          "likes": 92
         },
         {
           "title": "RM AWARD 2025 华南理工大学 华南虎战队 陈翀 招新、培养、管理三方经验分享",
           "url": "https://bbs.robomaster.com/article/815698",
           "author": "C.C",
           "date": "2025-11-01",
-          "likes": 47
+          "likes": 50
         },
         {
           "title": "【RM2025-应星工程机器人机械结构开源】华南理工大学 华南虎战队",
           "url": "https://bbs.robomaster.com/article/803707",
           "author": ".W.",
           "date": "2025-08-25",
-          "likes": 31
+          "likes": 32
         },
         {
           "title": "【RM2024-真空吸盘气路设计经验总结开源】华南理工大学 华南虎战队",
@@ -1281,7 +1281,7 @@
           "url": "https://bbs.robomaster.com/article/804799",
           "author": "沉月",
           "date": "2025-09-28",
-          "likes": 17
+          "likes": 18
         }
       ]
     },
@@ -1292,7 +1292,7 @@
           "url": "https://bbs.robomaster.com/article/811243",
           "author": "魔法电容使",
           "date": "2025-09-21",
-          "likes": 51
+          "likes": 52
         }
       ],
       "哨兵": [
@@ -1301,7 +1301,7 @@
           "url": "https://bbs.robomaster.com/article/811243",
           "author": "魔法电容使",
           "date": "2025-09-21",
-          "likes": 51
+          "likes": 52
         }
       ]
     },
@@ -1321,7 +1321,7 @@
           "url": "https://bbs.robomaster.com/article/811124",
           "author": "赵翠翠",
           "date": "2025-09-17",
-          "likes": 13
+          "likes": 14
         }
       ]
     },
@@ -1332,7 +1332,7 @@
           "url": "https://bbs.robomaster.com/article/809863",
           "author": "水水水水啊",
           "date": "2025-09-04",
-          "likes": 39
+          "likes": 40
         }
       ]
     },
@@ -1395,7 +1395,7 @@
           "url": "https://bbs.robomaster.com/article/54183",
           "author": "胖胖",
           "date": "2024-09-26",
-          "likes": 5
+          "likes": 6
         },
         {
           "title": "【RM2024赛季-自定义控制器机械开源】首都师范大学PIE战队",
@@ -1443,7 +1443,7 @@
           "url": "https://bbs.robomaster.com/article/803404",
           "author": "破防哥",
           "date": "2025-08-20",
-          "likes": 47
+          "likes": 48
         },
         {
           "title": "【RM2024-有控飞镖开源】大连理工大学凌BUG战队",
@@ -1495,7 +1495,7 @@
           "url": "https://bbs.robomaster.com/article/803691",
           "author": "孙洪稷",
           "date": "2025-08-25",
-          "likes": 196
+          "likes": 202
         },
         {
           "title": "【RM2025-串联腿髋关节模块开源】青岛大学 未来战队",
@@ -1566,7 +1566,7 @@
           "url": "https://bbs.robomaster.com/article/349122",
           "author": "李柯轩",
           "date": "2024-12-22",
-          "likes": 54
+          "likes": 55
         },
         {
           "title": "[RM2024-英雄机器人机械结构开源】太原理工大学-TRoMaC战队",
@@ -1598,7 +1598,7 @@
           "url": "https://bbs.robomaster.com/article/26577",
           "author": "ORZERO",
           "date": "2024-09-02",
-          "likes": 37
+          "likes": 38
         }
       ],
       "英雄": [
@@ -1630,7 +1630,7 @@
           "url": "https://bbs.robomaster.com/article/22095",
           "author": "ORZERO",
           "date": "2024-08-30",
-          "likes": 22
+          "likes": 23
         },
         {
           "title": "中国科学技术大学RoboWalker战队 2024赛季工程机器人代码、技术报告开源",
@@ -1711,7 +1711,7 @@
           "url": "https://bbs.robomaster.com/article/803655",
           "author": "升F大调",
           "date": "2025-08-24",
-          "likes": 38
+          "likes": 40
         },
         {
           "title": "【2024赛季-空中机器人开源】哈尔滨工程大学",
@@ -1834,7 +1834,7 @@
           "url": "https://bbs.robomaster.com/article/803315",
           "author": "XiaoYoung",
           "date": "2025-08-19",
-          "likes": 115
+          "likes": 116
         }
       ],
       "步兵": [
@@ -1843,7 +1843,7 @@
           "url": "https://bbs.robomaster.com/article/769697",
           "author": "李柯轩",
           "date": "2025-08-14",
-          "likes": 52
+          "likes": 53
         }
       ],
       "英雄": [
@@ -1852,7 +1852,7 @@
           "url": "https://bbs.robomaster.com/article/349122",
           "author": "李柯轩",
           "date": "2024-12-22",
-          "likes": 54
+          "likes": 55
         }
       ]
     },
@@ -1863,7 +1863,7 @@
           "url": "https://bbs.robomaster.com/article/776744",
           "author": "OldWu",
           "date": "2025-08-17",
-          "likes": 49
+          "likes": 53
         }
       ],
       "工程": [
@@ -2008,7 +2008,7 @@
           "url": "https://bbs.robomaster.com/article/54183",
           "author": "胖胖",
           "date": "2024-09-26",
-          "likes": 5
+          "likes": 6
         }
       ]
     },
@@ -2357,7 +2357,7 @@
           "url": "https://bbs.robomaster.com/article/715957",
           "author": "乐麻了",
           "date": "2025-06-02",
-          "likes": 56
+          "likes": 57
         },
         {
           "title": "【RM2025-飞镖上位机开源】西南交通大学Helios战队",
@@ -2488,7 +2488,7 @@
           "url": "https://bbs.robomaster.com/article/55593",
           "author": "港科工程",
           "date": "2024-10-25",
-          "likes": 25
+          "likes": 26
         }
       ],
       "无人机": [
@@ -2497,7 +2497,7 @@
           "url": "https://bbs.robomaster.com/article/55593",
           "author": "港科工程",
           "date": "2024-10-25",
-          "likes": 25
+          "likes": 26
         }
       ],
       "哨兵": [
@@ -2506,7 +2506,7 @@
           "url": "https://bbs.robomaster.com/article/55593",
           "author": "港科工程",
           "date": "2024-10-25",
-          "likes": 25
+          "likes": 26
         }
       ],
       "飞镖": [
@@ -2599,7 +2599,7 @@
           "url": "https://bbs.robomaster.com/article/22843",
           "author": "Alan",
           "date": "2024-09-01",
-          "likes": 80
+          "likes": 81
         }
       ]
     }
