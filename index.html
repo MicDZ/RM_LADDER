@@ -905,7 +905,7 @@ const TYPE_FIELDS_DEFAULT = {
 
 // ── Ladder: composite score per type (defaults) ──
 const LADDER_FIELDS_DEFAULT = {
-  Infantry: { field: 'eagKdaScore', label: 'KDA评分' },
+  Infantry: { field: 'eaKDA', label: 'KDA' },
   Hero: { field: 'gkDamage', label: '场均关键伤害' },
   Sapper: { field: 'eaExchangeEcon', label: '兑换经济' },
   Airplane: { field: 'eagHurt', label: '场均伤害量' },
@@ -1155,9 +1155,9 @@ function getRobotRank(robotType, zoneId) {
     robots = getRobots(zoneId, robotType);
   }
   if (ASC_FIELDS.has(ladderCfg.field)) {
-    robots.sort((a, b) => (a[ladderCfg.field] || 0) - (b[ladderCfg.field] || 0));
+    robots.sort((a, b) => getFieldSortValue(a, ladderCfg.field, currentYear) - getFieldSortValue(b, ladderCfg.field, currentYear));
   } else {
-    robots.sort((a, b) => (b[ladderCfg.field] || 0) - (a[ladderCfg.field] || 0));
+    robots.sort((a, b) => getFieldSortValue(b, ladderCfg.field, currentYear) - getFieldSortValue(a, ladderCfg.field, currentYear));
   }
   return { total: robots.length, sorted: robots, field: ladderCfg.field, label: ladderCfg.label };
 }
@@ -1862,6 +1862,16 @@ function getRobotFieldValue(robot, field, year) {
   return null;
 }
 
+function getFieldSortValue(robot, field, year) {
+  const value = year ? getRobotFieldValue(robot, field, year) : robot?.[field];
+  if (typeof value === 'string') {
+    if (value.includes('/')) return parseFloat(value.split('/')[0]) || 0;
+    const parsed = parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return Number.isFinite(value) ? value : 0;
+}
+
 function getFieldRank(type, field, zoneId, year, college) {
   const targetCollege = college || schoolCollege;
   const yearData = year === currentYear ? DATA : DATA_CACHE[year];
@@ -1878,9 +1888,9 @@ function getFieldRank(type, field, zoneId, year, college) {
     });
   });
   if (ASC_FIELDS.has(field)) {
-    robots.sort((a, b) => (getRobotFieldValue(a, field, year) || 0) - (getRobotFieldValue(b, field, year) || 0));
+    robots.sort((a, b) => getFieldSortValue(a, field, year) - getFieldSortValue(b, field, year));
   } else {
-    robots.sort((a, b) => (getRobotFieldValue(b, field, year) || 0) - (getRobotFieldValue(a, field, year) || 0));
+    robots.sort((a, b) => getFieldSortValue(b, field, year) - getFieldSortValue(a, field, year));
   }
   for (let i = 0; i < robots.length; i++) {
     if (robots[i].collegeName === targetCollege) return { rank: i + 1, total: robots.length };
@@ -2982,9 +2992,9 @@ function renderLadder() {
   const robots = getRobots(ladderZone, ladderType);
   const cfg = YEAR_CONFIG[currentYear].ladderFields[ladderType];
   if (ASC_FIELDS.has(cfg.field)) {
-    robots.sort((a, b) => (a[cfg.field] || 0) - (b[cfg.field] || 0));
+    robots.sort((a, b) => getFieldSortValue(a, cfg.field, currentYear) - getFieldSortValue(b, cfg.field, currentYear));
   } else {
-    robots.sort((a, b) => (b[cfg.field] || 0) - (a[cfg.field] || 0));
+    robots.sort((a, b) => getFieldSortValue(b, cfg.field, currentYear) - getFieldSortValue(a, cfg.field, currentYear));
   }
 
   const top = robots.slice(0, 9);
@@ -3020,13 +3030,9 @@ function renderTable() {
   // Sort
   if (sortField) {
     robots.sort((a, b) => {
-      let va = a[sortField], vb = b[sortField];
-      if (typeof va === 'string' && va.includes('/')) {
-        // KDA string: parse kills
-        va = parseFloat(va.split('/')[0]) || 0;
-        vb = parseFloat(vb.split('/')[0]) || 0;
-      }
-      return ((va || 0) - (vb || 0)) * sortDir;
+      const va = getFieldSortValue(a, sortField, currentYear);
+      const vb = getFieldSortValue(b, sortField, currentYear);
+      return (va - vb) * sortDir;
     });
   } else {
     // Default sort by first numeric field desc (asc for ASC_FIELDS)
