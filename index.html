@@ -847,7 +847,6 @@ const FIELD_MAP = {
   eaSmallHitRate: '小弹丸命中率',
   eagHurt: '场均伤害量',
   eaKDA: 'KDA',
-  eagKdaScore: 'KDA评分',
   matchLargeEnergyActRoundsAvg: '大能量机关平均激活环数',
   gkDamage: '场均关键伤害',
   gKillCount: '场均击杀数',
@@ -894,18 +893,18 @@ const TYPE_NAMES = {
 
 // ── Fields active per robot type (defaults) ──
 const TYPE_FIELDS_DEFAULT = {
-  Infantry: ['eaSmallHitRate','eagHurt','gkDamage','eaKDA','eagKdaScore','gKillCount','matchLargeEnergyActRoundsAvg'],
-  Hero: ['eaBigHitRate','eagHurt','gkDamage','eaKDA','eagKdaScore','eaSnipeCnt','gKillCount'],
+  Infantry: ['eaSmallHitRate','eagHurt','gkDamage','eaKDA','gKillCount','matchLargeEnergyActRoundsAvg'],
+  Hero: ['eaBigHitRate','eagHurt','gkDamage','eaKDA','eaSnipeCnt','gKillCount'],
   Sapper: ['eaExchangeEcon','avgMineTime','avgMineDiff'],
-  Airplane: ['eaSmallHitRate','eagHurt','gkDamage','eaKDA','eagKdaScore','avgShootNum','gKillCount'],
-  Guard: ['eaSmallHitRate','eagHurt','gkDamage','eaKDA','eagKdaScore','gKillCount'],
+  Airplane: ['eaSmallHitRate','eagHurt','gkDamage','eaKDA','avgShootNum','gKillCount'],
+  Guard: ['eaSmallHitRate','eagHurt','gkDamage','eaKDA','gKillCount'],
   Radar: ['eaRadarMarkerTime','eaRadarDebuffDmg'],
   Dart: ['etDartOutpostCnt','etDartFixedCnt','etDartRDFixCnt','etDartRDMoveCnt','gkDamage','gKillCount'],
 };
 
 // ── Ladder: composite score per type (defaults) ──
 const LADDER_FIELDS_DEFAULT = {
-  Infantry: { field: 'eagKdaScore', label: 'KDA评分' },
+  Infantry: { field: 'eagKdaScore', label: 'K+0.4A' },
   Hero: { field: 'gkDamage', label: '场均关键伤害' },
   Sapper: { field: 'eaExchangeEcon', label: '兑换经济' },
   Airplane: { field: 'eagHurt', label: '场均伤害量' },
@@ -1154,7 +1153,16 @@ function getRobotRank(robotType, zoneId) {
   } else {
     robots = getRobots(zoneId, robotType);
   }
-  if (ASC_FIELDS.has(ladderCfg.field)) {
+  // Infantry: rank by k + a * 0.4
+  if (robotType === 'Infantry') {
+    robots.forEach(r => {
+      const parts = (r.eaKDA || '0/0/0').split('/');
+      const k = parseFloat(parts[0]) || 0;
+      const a = parseFloat(parts[2]) || 0;
+      r._ladderScore = k + a * 0.4;
+    });
+    robots.sort((a, b) => (b._ladderScore || 0) - (a._ladderScore || 0));
+  } else if (ASC_FIELDS.has(ladderCfg.field)) {
     robots.sort((a, b) => (a[ladderCfg.field] || 0) - (b[ladderCfg.field] || 0));
   } else {
     robots.sort((a, b) => (b[ladderCfg.field] || 0) - (a[ladderCfg.field] || 0));
@@ -1363,7 +1371,7 @@ function renderRadarChart() {
       const r = ranked.sorted[i];
       if (r.collegeName === schoolCollege) {
         rank = i + 1;
-        value = r[ranked.field] || 0;
+        value = (type === 'Infantry' ? r._ladderScore : r[ranked.field]) || 0;
         break;
       }
     }
@@ -1877,7 +1885,16 @@ function getFieldRank(type, field, zoneId, year, college) {
       });
     });
   });
-  if (ASC_FIELDS.has(field)) {
+  // Infantry: rank by k + a * 0.4
+  if (type === 'Infantry' && (field === 'eagKdaScore' || field === 'eaKDA')) {
+    robots.forEach(r => {
+      const parts = (r.eaKDA || '0/0/0').split('/');
+      const k = parseFloat(parts[0]) || 0;
+      const a = parseFloat(parts[2]) || 0;
+      r._rankScore = k + a * 0.4;
+    });
+    robots.sort((a, b) => (b._rankScore || 0) - (a._rankScore || 0));
+  } else if (ASC_FIELDS.has(field)) {
     robots.sort((a, b) => (getRobotFieldValue(a, field, year) || 0) - (getRobotFieldValue(b, field, year) || 0));
   } else {
     robots.sort((a, b) => (getRobotFieldValue(b, field, year) || 0) - (getRobotFieldValue(a, field, year) || 0));
@@ -2981,7 +2998,17 @@ function getRobots(zoneFilter, typeFilter) {
 function renderLadder() {
   const robots = getRobots(ladderZone, ladderType);
   const cfg = YEAR_CONFIG[currentYear].ladderFields[ladderType];
-  if (ASC_FIELDS.has(cfg.field)) {
+
+  // Infantry: rank by k + a * 0.4 (parsed from eaKDA "k/d/a" string)
+  if (ladderType === 'Infantry') {
+    robots.forEach(r => {
+      const parts = (r.eaKDA || '0/0/0').split('/');
+      const k = parseFloat(parts[0]) || 0;
+      const a = parseFloat(parts[2]) || 0;
+      r._ladderScore = k + a * 0.4;
+    });
+    robots.sort((a, b) => (b._ladderScore || 0) - (a._ladderScore || 0));
+  } else if (ASC_FIELDS.has(cfg.field)) {
     robots.sort((a, b) => (a[cfg.field] || 0) - (b[cfg.field] || 0));
   } else {
     robots.sort((a, b) => (b[cfg.field] || 0) - (a[cfg.field] || 0));
@@ -2998,7 +3025,7 @@ function renderLadder() {
         <div class="ladder-team">${esc(r.teamName)}</div>
         <div class="ladder-detail">${esc(r.collegeName)} · ${esc(r.zoneName)} · #${r.robotNumber}</div>
       </div>
-      <div class="ladder-score">${formatNum(r[cfg.field])}</div>
+      <div class="ladder-score">${formatNum(ladderType === 'Infantry' ? r._ladderScore : r[cfg.field])}</div>
     </div>
   `).join('');
 }
@@ -3012,9 +3039,9 @@ function renderTable() {
   let fields;
   if (currentType === 'all') {
     // Show common fields
-    fields = ['eaKDA', 'eagKdaScore', 'gkDamage', 'gKillCount', 'eaSmallHitRate'];
+    fields = ['eaKDA', 'gkDamage', 'gKillCount', 'eaSmallHitRate'];
   } else {
-    fields = typeFields[currentType] || ['eaKDA', 'eagKdaScore'];
+    fields = typeFields[currentType] || ['eaKDA'];
   }
 
   // Sort
@@ -3022,9 +3049,11 @@ function renderTable() {
     robots.sort((a, b) => {
       let va = a[sortField], vb = b[sortField];
       if (typeof va === 'string' && va.includes('/')) {
-        // KDA string: parse kills
-        va = parseFloat(va.split('/')[0]) || 0;
-        vb = parseFloat(vb.split('/')[0]) || 0;
+        // KDA string: compute k + a * 0.4
+        const pa = va.split('/');
+        const pb = vb.split('/');
+        va = (parseFloat(pa[0]) || 0) + (parseFloat(pa[2]) || 0) * 0.4;
+        vb = (parseFloat(pb[0]) || 0) + (parseFloat(pb[2]) || 0) * 0.4;
       }
       return ((va || 0) - (vb || 0)) * sortDir;
     });
