@@ -760,9 +760,48 @@ td.num-cell.highlight {
   text-transform: uppercase;
   color: var(--ink-mute);
 }
+
+/* ── Loading Overlay ── */
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: var(--canvas-night);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-xl);
+  transition: opacity 0.3s ease;
+}
+.loading-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--hairline-on-dark);
+  border-top-color: var(--on-primary);
+  border-radius: 50%;
+  animation: loading-spin 0.8s linear infinite;
+}
+@keyframes loading-spin {
+  to { transform: rotate(360deg); }
+}
+.loading-text {
+  color: var(--ink-mute);
+  font-family: var(--font-body);
+  font-size: 14px;
+  letter-spacing: 1.12px;
+}
 </style>
 </head>
 <body>
+<div id="loadingOverlay" class="loading-overlay">
+  <div class="loading-spinner"></div>
+  <p class="loading-text">正在加载数据…</p>
+</div>
 
 <!-- Nav -->
 <nav class="nav">
@@ -1046,18 +1085,22 @@ function handleRoute() {
           currentType = firstType; ladderType = firstType;
         } else { currentType = 'Infantry'; ladderType = 'Infantry'; }
       }
+      showLoading();
       loadData(year).then(data => {
         DATA = data;
         if (year !== currentYear) currentYear = year;
         renderSchoolDetail();
+        hideLoading();
       });
     } else {
       // Pure #school — show page without a specific school
       schoolCollege = '';
       schoolType = '';
+      showLoading();
       loadData(currentYear).then(data => {
         DATA = data;
         renderSchoolDetail();
+        hideLoading();
       });
     }
   } else if (hash === '#compare') {
@@ -1069,9 +1112,11 @@ function handleRoute() {
     compareEl.style.display = 'block';
 
     if (!DATA) {
+      showLoading();
       loadData(currentYear).then(data => {
         DATA = data;
         renderComparePage();
+        hideLoading();
       });
     } else {
       renderComparePage();
@@ -1085,9 +1130,11 @@ function handleRoute() {
     compareEl.style.display = 'none';
 
     if (!DATA) {
+      showLoading();
       loadData(currentYear).then(data => {
         DATA = data;
         renderMainView(hash);
+        hideLoading();
       });
     } else {
       renderMainView(hash);
@@ -2787,19 +2834,35 @@ async function loadGoldcoinHistory() {
   return goldcoinHistory;
 }
 
+// ── Loading Overlay ──
+function showLoading() {
+  document.getElementById('loadingOverlay').classList.remove('hidden');
+}
+function hideLoading() {
+  document.getElementById('loadingOverlay').classList.add('hidden');
+}
+
 async function init() {
-  await loadCollegeLogos();
-  DATA = await loadData(currentYear);
-  await Promise.all([loadForumReports(), loadScoreHistory(), loadAssessmentHistory(), loadGoldcoinHistory()]);
-  // Pre-load all years for search
-  for (const y of YEAR_ORDER) { loadData(y); }
-  handleRoute();
+  showLoading();
+  try {
+    await loadCollegeLogos();
+    DATA = await loadData(currentYear);
+    await Promise.all([loadForumReports(), loadScoreHistory(), loadAssessmentHistory(), loadGoldcoinHistory()]);
+    // Pre-load all years for search
+    for (const y of YEAR_ORDER) { loadData(y); }
+    handleRoute();
+  } catch (e) {
+    console.error('Init failed:', e);
+  } finally {
+    hideLoading();
+  }
   window.addEventListener('hashchange', handleRoute);
 }
 
 // ── Year Switch ──
 async function setYear(year, el) {
   if (year === currentYear) return;
+  showLoading();
   currentYear = year;
   // Update year pills in both filter bars
   document.querySelectorAll('.year-group').forEach(g => {
@@ -2826,6 +2889,7 @@ async function setYear(year, el) {
   renderFilters();
   renderLadder();
   renderTable();
+  hideLoading();
 }
 
 // ── Summary ──
