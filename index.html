@@ -1863,7 +1863,7 @@ function getRobotFieldValue(robot, field, year) {
 }
 
 function getFieldSortValue(robot, field, year) {
-  const value = year ? getRobotFieldValue(robot, field, year) : robot?.[field];
+  const value = year != null ? getRobotFieldValue(robot, field, year) : robot?.[field];
   if (typeof value === 'string') {
     if (value.includes('/')) return parseFloat(value.split('/')[0]) || 0;
     const parsed = parseFloat(value);
