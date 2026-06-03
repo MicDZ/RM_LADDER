@@ -711,6 +711,14 @@ td.num-cell.highlight {
   gap: var(--sp-sm);
   padding: var(--sp-xs) 0 var(--sp-sm);
   border-bottom: 1px solid rgba(58,58,63,0.4);
+  user-select: none;
+}
+.match-season-header:hover .match-season-arrow { color: var(--on-primary); }
+.match-season-arrow {
+  font-size: 14px;
+  color: var(--ink-mute);
+  transition: color 0.15s;
+  flex-shrink: 0;
 }
 .match-season-year {
   font-family: var(--font-display);
@@ -1861,6 +1869,18 @@ function renderHistoryChart() {
 }
 
 // ── Match History Tab ──
+function toggleMatchSeason(header) {
+  const list = header.nextElementSibling;
+  const arrow = header.querySelector('.match-season-arrow');
+  if (list.style.display === 'none') {
+    list.style.display = '';
+    arrow.textContent = '▾';
+  } else {
+    list.style.display = 'none';
+    arrow.textContent = '▸';
+  }
+}
+
 function renderMatchHistory(wrap, available) {
   const data = getHistoryData(matchHistory, schoolCollege);
   if (!data || data.length === 0) {
@@ -1891,12 +1911,14 @@ function renderMatchHistory(wrap, available) {
     html += '</div>';
   }
 
-  // Per-season breakdown
-  allSeasons.forEach(seasonData => {
+  // Per-season breakdown (most recent first)
+  const reversedSeasons = [...allSeasons].reverse();
+  reversedSeasons.forEach(seasonData => {
     const season = seasonData.season;
     const ss = summary && summary.perSeason ? summary.perSeason[season] : null;
     html += '<div class="match-season-group">';
-    html += '<div class="match-season-header">';
+    html += `<div class="match-season-header" onclick="toggleMatchSeason(this)" style="cursor:pointer">`;
+    html += '<span class="match-season-arrow">▾</span>';
     html += `<span class="match-season-year">${season}</span>`;
     if (ss) {
       html += `<span class="match-season-record">${ss.wins}胜 ${ss.losses}负 ${ss.draws}平 · ${ss.wins + ss.losses + ss.draws}场</span>`;
