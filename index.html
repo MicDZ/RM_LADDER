@@ -659,6 +659,151 @@ td.num-cell.highlight {
   white-space: nowrap;
 }
 
+/* ── Match History ── */
+.match-summary-bar {
+  display: flex;
+  gap: var(--sp-md);
+  align-items: baseline;
+  padding: var(--sp-md) 0;
+  margin-bottom: var(--sp-lg);
+  border-bottom: 1px solid var(--hairline-on-dark);
+  flex-wrap: wrap;
+}
+.match-stat {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+}
+.match-stat-label {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0.32px;
+  margin-left: 2px;
+}
+.match-stat.win { color: #2ecc71; }
+.match-stat.loss { color: #e74c3c; }
+.match-stat.draw { color: var(--ink-mute); }
+.match-stat.winrate {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0.32px;
+  color: var(--ink-mute);
+  margin-left: var(--sp-xs);
+}
+.match-stat.total {
+  margin-left: auto;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0.32px;
+  color: var(--ink-mute);
+}
+
+.match-season-group {
+  margin-bottom: var(--sp-lg);
+}
+.match-season-header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-sm);
+  padding: var(--sp-xs) 0 var(--sp-sm);
+  border-bottom: 1px solid rgba(58,58,63,0.4);
+}
+.match-season-year {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.96px;
+  color: var(--on-primary);
+}
+.match-season-record {
+  font-size: 13px;
+  color: var(--ink-mute);
+  letter-spacing: 0.32px;
+}
+
+.match-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 360px;
+  overflow-y: auto;
+  padding-right: var(--sp-xs);
+}
+.match-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-sm);
+  padding: 10px var(--sp-md);
+  border: 1px solid rgba(58,58,63,0.25);
+  border-radius: var(--radius-xs);
+  transition: border-color 0.15s, background 0.15s;
+}
+.match-item:hover {
+  border-color: var(--hairline-on-dark);
+  background: rgba(255,255,255,0.02);
+}
+.match-result-badge {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-xs);
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+.match-result-badge.match-win {
+  background: rgba(46,204,113,0.15);
+  color: #2ecc71;
+  border: 1px solid rgba(46,204,113,0.3);
+}
+.match-result-badge.match-loss {
+  background: rgba(231,76,60,0.15);
+  color: #e74c3c;
+  border: 1px solid rgba(231,76,60,0.3);
+}
+.match-result-badge.match-draw {
+  background: rgba(90,90,95,0.15);
+  color: var(--ink-mute);
+  border: 1px solid rgba(90,90,95,0.3);
+}
+.match-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.match-opponent {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--on-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.match-meta {
+  font-size: 12px;
+  color: var(--ink-mute);
+  letter-spacing: 0.32px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.match-list::-webkit-scrollbar { width: 4px; }
+.match-list::-webkit-scrollbar-track { background: transparent; }
+.match-list::-webkit-scrollbar-thumb {
+  background: var(--hairline-on-dark);
+  border-radius: 2px;
+}
+.match-list::-webkit-scrollbar-thumb:hover { background: var(--ink-mute); }
+
 /* ── Compare Page ── */
 .compare-slot {
   display: flex;
@@ -1010,6 +1155,7 @@ let forumReports = null;
 let scoreHistory = null;
 let assessmentHistory = null;
 let goldcoinHistory = null;
+let matchHistory = null;
 let currentHistoryTab = 'score';
 let collegeLogos = {};
 let currentZone = 'all';
@@ -1563,6 +1709,7 @@ const HISTORY_TABS = [
   { key: 'score', label: '积分榜', data: () => scoreHistory },
   { key: 'assessment', label: '完整形态', data: () => assessmentHistory },
   { key: 'goldcoin', label: '初始金币', data: () => goldcoinHistory },
+  { key: 'match', label: '比赛战绩', type: 'html' },
 ];
 
 function setHistoryTab(tab, el) {
@@ -1577,8 +1724,12 @@ function renderHistoryChart() {
 
   // Determine which tabs have data for this school
   const available = HISTORY_TABS.filter(t => {
+    if (t.type === 'html') {
+      // Match history tab: check matchHistory data
+      return matchHistory && getHistoryData(matchHistory, schoolCollege);
+    }
     const d = t.data();
-    return d && d.schools[schoolCollege] && d.schools[schoolCollege].length >= 2;
+    return d && getHistoryData(d, schoolCollege) && getHistoryData(d, schoolCollege).length >= 2;
   });
 
   if (available.length === 0) {
@@ -1591,9 +1742,15 @@ function renderHistoryChart() {
     currentHistoryTab = available[0].key;
   }
 
+  // Branch: match history tab uses HTML rendering, not canvas
+  if (currentHistoryTab === 'match') {
+    renderMatchHistory(wrap, available);
+    return;
+  }
+
   const activeTab = available.find(t => t.key === currentHistoryTab);
   const dataObj = activeTab.data();
-  const entries = dataObj.schools[schoolCollege];
+  const entries = getHistoryData(dataObj, schoolCollege);
 
   wrap.style.display = 'block';
   const w = Math.min(wrap.clientWidth || 600, 600);
@@ -1701,6 +1858,70 @@ function renderHistoryChart() {
     ctx.textBaseline = 'bottom';
     ctx.fillText(getLabel(p.entry), p.x, p.y - 8);
   });
+}
+
+// ── Match History Tab ──
+function renderMatchHistory(wrap, available) {
+  const data = getHistoryData(matchHistory, schoolCollege);
+  if (!data || data.length === 0) {
+    wrap.innerHTML = '<div class="type-detail-section"><p style="color:var(--ink-mute);padding:var(--sp-md)">无比赛数据</p></div>';
+    return;
+  }
+
+  const summary = matchHistory.summary[normCollegeName(schoolCollege)] || matchHistory.summary[schoolCollege];
+  const allSeasons = data;
+
+  let html = '<div class="type-detail-section">';
+
+  // Tab pills
+  html += '<div class="filter-group" style="margin-bottom:var(--sp-md)">';
+  html += available.map(t => `<button class="pill${t.key === currentHistoryTab ? ' active' : ''}" onclick="setHistoryTab('${t.key}',this)">${t.label}</button>`).join('');
+  html += '</div>';
+
+  // Overall W-L-D summary
+  if (summary) {
+    const totalGames = summary.totalWins + summary.totalLosses + summary.totalDraws;
+    const winRate = totalGames > 0 ? (summary.totalWins / totalGames * 100).toFixed(1) : '0.0';
+    html += '<div class="match-summary-bar">';
+    html += `<span class="match-stat win">${summary.totalWins}<span class="match-stat-label">胜</span></span>`;
+    html += `<span class="match-stat loss">${summary.totalLosses}<span class="match-stat-label">负</span></span>`;
+    html += `<span class="match-stat draw">${summary.totalDraws}<span class="match-stat-label">平</span></span>`;
+    html += `<span class="match-stat winrate">胜率 ${winRate}%</span>`;
+    html += `<span class="match-stat total">共 ${totalGames} 场</span>`;
+    html += '</div>';
+  }
+
+  // Per-season breakdown
+  allSeasons.forEach(seasonData => {
+    const season = seasonData.season;
+    const ss = summary && summary.perSeason ? summary.perSeason[season] : null;
+    html += '<div class="match-season-group">';
+    html += '<div class="match-season-header">';
+    html += `<span class="match-season-year">${season}</span>`;
+    if (ss) {
+      html += `<span class="match-season-record">${ss.wins}胜 ${ss.losses}负 ${ss.draws}平 · ${ss.wins + ss.losses + ss.draws}场</span>`;
+    }
+    html += '</div>';
+
+    // Match list
+    html += '<div class="match-list">';
+    seasonData.matches.forEach(m => {
+      const resultClass = m.result === 'win' ? 'match-win' : m.result === 'loss' ? 'match-loss' : 'match-draw';
+      const resultLabel = m.result === 'win' ? '胜' : m.result === 'loss' ? '负' : '平';
+      html += `<div class="match-item ${resultClass}">`;
+      html += `<span class="match-result-badge ${resultClass}">${resultLabel}</span>`;
+      html += '<div class="match-info">';
+      html += `<span class="match-opponent">vs ${esc(m.opponent)}</span>`;
+      html += `<span class="match-meta">${esc(m.score)} · ${esc(m.zone)} · ${esc(m.group)}</span>`;
+      html += '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+    html += '</div>';
+  });
+
+  html += '</div>';
+  wrap.innerHTML = html;
 }
 
 // ── School Type Filter (pills above type detail) ──
@@ -2834,6 +3055,17 @@ async function loadGoldcoinHistory() {
   return goldcoinHistory;
 }
 
+async function loadMatchHistory() {
+  if (matchHistory) return matchHistory;
+  try {
+    const resp = await fetch('static/match_history.json');
+    matchHistory = await resp.json();
+  } catch (e) {
+    matchHistory = null;
+  }
+  return matchHistory;
+}
+
 // ── Loading Overlay ──
 function showLoading() {
   document.getElementById('loadingOverlay').classList.remove('hidden');
@@ -2847,7 +3079,7 @@ async function init() {
   try {
     await loadCollegeLogos();
     DATA = await loadData(currentYear);
-    await Promise.all([loadForumReports(), loadScoreHistory(), loadAssessmentHistory(), loadGoldcoinHistory()]);
+    await Promise.all([loadForumReports(), loadScoreHistory(), loadAssessmentHistory(), loadGoldcoinHistory(), loadMatchHistory()]);
     // Pre-load all years for search
     for (const y of YEAR_ORDER) { loadData(y); }
     handleRoute();
@@ -3190,6 +3422,36 @@ function formatNum(v) {
 function esc(s) {
   if (!s) return '';
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── College Name Normalization ──
+const COLLEGE_RENAMES = {
+  '华南理工大学广州学院': '广州城市理工学院',
+  '佛山科学技术学院': '佛山大学',
+  '深圳职业技术学院': '深圳职业技术大学',
+  '福建工程学院': '福建理工大学',
+  '中国人民解放军国防科技大学': '国防科技大学',
+  '西交利物浦大学&利物浦大学': '西交利物浦大学',
+  '西交利物浦大学&University of Liverpool': '西交利物浦大学',
+  '合肥工业大学宣城校区': '合肥工业大学（宣城校区）',
+  '桂林电子科技大学信息科技学院': '桂林信息科技学院',
+  '北京理工大学（珠海）': '北京理工大学珠海学院',
+};
+function normCollegeName(name) {
+  if (!name) return name;
+  // Exact renames
+  name = COLLEGE_RENAMES[name] || name;
+  // Normalize half-width parens to full-width
+  name = name.replace(/\(/g, '（').replace(/\)/g, '）');
+  return name;
+}
+// Lookup helper: try normalized name first, then raw
+function getHistoryData(dataObj, college) {
+  if (!dataObj || !dataObj.schools) return null;
+  const norm = normCollegeName(college);
+  if (dataObj.schools[norm]) return dataObj.schools[norm];
+  if (dataObj.schools[college]) return dataObj.schools[college];
+  return null;
 }
 
 // ── Search ──
