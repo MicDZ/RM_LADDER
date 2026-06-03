@@ -178,6 +178,17 @@ body {
   text-transform: uppercase;
   margin: var(--sp-huge) 0 var(--sp-xl);
 }
+.section-subtitle {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 1.32px;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin: 0 0 var(--sp-md);
+  padding-bottom: var(--sp-sm);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
 
 /* ── Search ── */
 .search-wrap {
@@ -1005,10 +1016,10 @@ td.num-cell.highlight {
   <section id="schoolDetail" style="display:none;padding-top:120px">
     <a href="#ladder" class="pill" style="margin-bottom:var(--sp-xl);display:inline-flex;align-items:center;gap:8px;text-decoration:none">← 返回榜单</a>
     <div id="schoolHeader"></div>
+    <div id="historyChartWrap" style="display:none;margin-bottom:var(--sp-xl)"></div>
     <div id="schoolZoneFilter"></div>
     <div id="schoolRadarWrap" class="radar-wrap"></div>
     <p id="radarHint" style="text-align:center;color:var(--ink-mute);font-size:13px;margin-top:-8px;margin-bottom:var(--sp-lg);display:none">点击雷达图上的兵种节点查看具体数据</p>
-    <div id="historyChartWrap" style="display:none;margin-bottom:var(--sp-xl)"></div>
     <div id="schoolTypeFilter" style="display:none;text-align:center;margin-bottom:var(--sp-md)"></div>
     <div id="schoolTypeDetail" style="display:none"></div>
   </section>
@@ -1501,6 +1512,7 @@ function renderSchoolDetail() {
     return yd.zones.some(z => z.teams.some(t => t.collegeName === schoolCollege));
   });
   document.getElementById('schoolZoneFilter').innerHTML = `
+    <div class="section-subtitle" style="margin-top:var(--sp-lg)">赛季详情</div>
     <div class="filter-bar" style="padding-top:0">
       <div class="filter-group">
         <span class="filter-label">年份</span>
@@ -1785,6 +1797,7 @@ function renderHistoryChart() {
 
   wrap.innerHTML = `
     <div class="type-detail-section">
+      <div class="section-subtitle">历史数据</div>
       <div class="filter-group" style="margin-bottom:var(--sp-md)">
         ${available.map(t => `<button class="pill${t.key === currentHistoryTab ? ' active' : ''}" onclick="setHistoryTab('${t.key}',this)">${t.label}</button>`).join('')}
       </div>
@@ -1892,6 +1905,7 @@ function renderMatchHistory(wrap, available) {
   const allSeasons = data;
 
   let html = '<div class="type-detail-section">';
+  html += '<div class="section-subtitle">历史数据</div>';
 
   // Tab pills
   html += '<div class="filter-group" style="margin-bottom:var(--sp-md)">';
