@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RM Ladder — RoboMaster 天梯榜</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 <style>
 /* ── Reset ── */
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -80,6 +81,7 @@ body {
   transition: opacity 0.2s;
 }
 .nav-links a:hover, .nav-links a.active { opacity: 1; }
+.nav-toggle { display: none; }
 
 /* ── Hero ── */
 .hero {
@@ -408,12 +410,14 @@ td.num-cell.highlight {
 
 /* ── Responsive ── */
 @media (max-width: 768px) {
-  .hero h1 { font-size: 40px; }
+  .hero h1 { font-size: 44px; }
+  .hero { padding: 120px var(--sp-xl) var(--sp-xxl); }
   .section-title { font-size: 32px; }
   .container { padding: 0 var(--sp-md); }
   .nav { padding: var(--sp-md); }
   .nav-links { gap: var(--sp-md); }
   .ladder { grid-template-columns: 1fr; }
+  .stat-value { font-size: 26px; }
   .school-header {
     flex-wrap: wrap;
     gap: var(--sp-md);
@@ -426,6 +430,350 @@ td.num-cell.highlight {
   .school-header .school-search input {
     width: 100%;
     min-width: 0 !important;
+  }
+}
+
+/* ── Responsive: Small Mobile < 600px ── */
+@media (max-width: 600px) {
+  /* Hero */
+  .hero {
+    padding: 100px var(--sp-md) var(--sp-xl);
+  }
+  .hero h1 {
+    font-size: 36px;
+    letter-spacing: 1px;
+  }
+  .hero p {
+    font-size: 14px;
+  }
+
+  /* Section titles */
+  .section-title {
+    font-size: 28px;
+    margin: var(--sp-xl) 0 var(--sp-md);
+  }
+  .section-subtitle {
+    font-size: 10px;
+    letter-spacing: 1px;
+  }
+
+  /* Stats summary */
+  .stat-value { font-size: 24px; }
+  .stats-summary { gap: var(--sp-md); }
+
+  /* Container */
+  .container { padding: 0 var(--sp-sm); }
+
+  /* Filter bar */
+  .filter-bar {
+    gap: var(--sp-xxs);
+    padding: var(--sp-md) 0;
+  }
+  .pill {
+    padding: 6px 14px;
+    font-size: 11px;
+    letter-spacing: 0.8px;
+  }
+
+  /* Search */
+  .search-input {
+    max-width: none;
+    width: 100%;
+  }
+
+  /* Table wrap — hide desktop table on mobile */
+  .table-wrap {
+    max-height: none;
+    border: none;
+    border-radius: 0;
+    overflow-x: visible;
+  }
+
+  /* School detail pages */
+  #schoolDetail { padding-top: 80px !important; }
+  #compareSection { padding-top: 80px !important; }
+  .school-header { gap: var(--sp-sm); }
+  .school-logo { width: 48px; height: 48px; }
+
+  /* Compare slots */
+  .compare-slot {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--sp-xxs);
+    padding: var(--sp-sm) 0;
+    border-bottom: 1px solid var(--hairline-on-dark);
+    margin-bottom: var(--sp-xs);
+  }
+  .compare-select {
+    width: 100% !important;
+    min-width: 0 !important;
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+  .compare-reorder,
+  .compare-remove {
+    align-self: flex-end;
+    margin-top: -36px;
+  }
+
+  /* Match history */
+  .match-stat { font-size: 18px; }
+  .match-stat.total {
+    margin-left: 0;
+    flex-basis: 100%;
+  }
+  .match-season-header {
+    font-size: 14px;
+  }
+  .match-item {
+    font-size: 12px;
+  }
+
+  /* Type detail grid — hide desktop grid on mobile (JS renders alternative) */
+  .type-detail-grid { display: none; }
+
+  /* Footer */
+  .footer {
+    padding: var(--sp-xl) var(--sp-md);
+    font-size: 11px;
+  }
+
+  /* Compare radar canvas */
+  .compare-radar-wrap canvas {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  /* Sub-pills */
+  .sub-pills { margin-left: 0; }
+
+  /* ── Hamburger Nav ── */
+  .nav { flex-wrap: wrap; }
+  .nav-links {
+    display: none;
+    flex-direction: column;
+    width: 100%;
+    gap: 0;
+    margin-top: var(--sp-md);
+    padding-top: var(--sp-sm);
+    border-top: 1px solid var(--hairline-on-dark);
+  }
+  .nav.nav-open .nav-links { display: flex; }
+  .nav-links a {
+    padding: var(--sp-sm) 0;
+    font-size: 14px;
+    letter-spacing: 1.5px;
+    border-bottom: 1px solid rgba(58,58,63,0.3);
+  }
+  .nav-links a:last-child { border-bottom: none; }
+  .nav-toggle {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    cursor: pointer;
+    padding: 4px;
+    background: none;
+    border: none;
+  }
+  .nav-toggle span {
+    display: block;
+    width: 22px;
+    height: 2px;
+    background: var(--on-primary);
+    transition: transform 0.2s, opacity 0.2s;
+  }
+  .nav.nav-open .nav-toggle span:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+  }
+  .nav.nav-open .nav-toggle span:nth-child(2) { opacity: 0; }
+  .nav.nav-open .nav-toggle span:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
+  }
+
+  /* ── Mobile Data Cards ── */
+  .mobile-data-cards {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-xxs);
+    margin-bottom: var(--sp-huge);
+  }
+  .mobile-data-card {
+    background: var(--canvas-night-soft);
+    border: 1px solid var(--hairline-on-dark);
+    border-radius: var(--radius-sm);
+    padding: var(--sp-sm) var(--sp-md);
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .mobile-data-card:active,
+  .mobile-data-card.expanded {
+    border-color: var(--on-primary);
+  }
+  .mobile-data-card-header {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-sm);
+  }
+  .mobile-data-card-header img {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #fff;
+    padding: 2px;
+    flex-shrink: 0;
+  }
+  .mobile-data-card-rank {
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 700;
+    min-width: 28px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .mobile-data-card-rank.top3 { color: var(--on-primary); }
+  .mobile-data-card-name {
+    flex: 1;
+    min-width: 0;
+  }
+  .mobile-data-card-team {
+    font-weight: 700;
+    font-size: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .mobile-data-card-college {
+    color: var(--ink-mute);
+    font-size: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .mobile-data-card-arrow {
+    color: var(--ink-mute);
+    font-size: 12px;
+    flex-shrink: 0;
+    transition: transform 0.2s;
+  }
+  .mobile-data-card.expanded .mobile-data-card-arrow {
+    transform: rotate(180deg);
+  }
+  .mobile-data-card-details {
+    display: none;
+    margin-top: var(--sp-sm);
+    padding-top: var(--sp-sm);
+    border-top: 1px solid var(--hairline-on-dark);
+  }
+  .mobile-data-card.expanded .mobile-data-card-details {
+    display: block;
+  }
+  .mobile-data-card-detail-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 2px 0;
+    font-size: 13px;
+  }
+  .mobile-data-card-detail-label {
+    color: var(--ink-mute);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+  .mobile-data-card-detail-value {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+  }
+  .mobile-data-card-detail-link {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 11px;
+    padding: 5px 12px;
+  }
+
+  /* ── Mobile Type Detail ── */
+  .type-detail-grid-mobile {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background: var(--hairline-on-dark);
+    border: 1px solid var(--hairline-on-dark);
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--sp-xl);
+  }
+  .type-detail-row-mobile {
+    background: var(--canvas-night-soft);
+    padding: var(--sp-sm) var(--sp-md);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .type-detail-row-mobile:active {
+    background: rgba(255,255,255,0.04);
+  }
+  .type-detail-row-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .type-detail-row-label {
+    color: var(--ink-mute);
+    font-size: 13px;
+  }
+  .type-detail-row-primary {
+    text-align: right;
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .type-detail-row-primary .rank-sub {
+    font-size: 11px;
+    color: var(--ink-mute);
+    display: block;
+    font-weight: 400;
+  }
+  .type-detail-row-expand {
+    display: none;
+    margin-top: var(--sp-sm);
+    padding-top: var(--sp-sm);
+    border-top: 1px solid rgba(58,58,63,0.3);
+  }
+  .type-detail-row-mobile.expanded .type-detail-row-expand {
+    display: block;
+  }
+  .type-detail-zone-col {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 3px 0;
+    font-size: 13px;
+  }
+  .type-detail-zone-col .zone-name {
+    color: var(--ink-mute);
+    font-size: 11px;
+  }
+
+  /* Compare mobile rank badges */
+  .compare-mobile-ranks {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .compare-rank-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    height: 24px;
+    padding: 0 6px;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: var(--font-display);
+    border: 2px solid var(--hairline-on-dark);
+    border-radius: 12px;
+    color: var(--on-primary);
+    background: rgba(255,255,255,0.05);
+  }
+  .type-detail-row-mobile.expanded .compare-rank-badge {
+    background: rgba(255,255,255,0.1);
   }
 }
 
@@ -477,10 +825,88 @@ td.num-cell.highlight {
   justify-content: center;
   margin: var(--sp-xl) 0;
 }
-.radar-wrap canvas {
-  max-width: 100%;
-  height: auto;
+.radar-wrap .chart-container {
+  width: 100%;
+  max-width: 500px;
+  aspect-ratio: 1;
   cursor: pointer;
+}
+
+/* ── ECharts Chart Containers ── */
+.chart-container {
+  width: 100%;
+  position: relative;
+}
+.radar-custom-tip {
+  display: none;
+  position: absolute;
+  z-index: 100;
+  pointer-events: none;
+  background: rgba(10,10,10,0.95);
+  border: 1px solid #3a3a3f;
+  border-radius: var(--radius-xs);
+  padding: 8px 10px;
+  font-size: 12px;
+  font-family: var(--font-body);
+  color: #ffffff;
+  max-width: 260px;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+.radar-custom-tip .tip-header {
+  font-weight: bold;
+  font-size: 13px;
+  margin-bottom: 4px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+.radar-custom-tip .tip-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px;
+}
+.radar-custom-tip .tip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.radar-custom-tip .tip-name {
+  font-weight: 600;
+}
+.radar-custom-tip .tip-rank {
+  font-weight: 700;
+}
+.radar-custom-tip .tip-val {
+  color: rgba(255,255,255,0.45);
+  font-size: 11px;
+}
+.radar-custom-tip .tip-no-data {
+  color: #5a5a5f;
+}
+.history-chart-container {
+  width: 100%;
+  height: 220px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+.compare-history-chart-container {
+  width: 100%;
+  height: 240px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+.compare-radar-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--sp-lg);
+  margin-bottom: var(--sp-xl);
+}
+.compare-radar-wrap .chart-container {
+  width: 100%;
+  max-width: 600px;
+  aspect-ratio: 1;
 }
 .type-detail-header {
   display: flex;
@@ -970,6 +1396,9 @@ td.num-cell.highlight {
 <!-- Nav -->
 <nav class="nav">
   <div class="nav-logo">RM Ladder</div>
+  <button class="nav-toggle" onclick="toggleNav()" aria-label="菜单">
+    <span></span><span></span><span></span>
+  </button>
   <div class="nav-links">
     <a href="#ladder" class="active">天梯榜</a>
     <a href="#data">数据查询</a>
@@ -1027,8 +1456,8 @@ td.num-cell.highlight {
   <!-- Compare Section -->
   <section id="compareSection" style="display:none;padding-top:120px">
     <h2 class="section-title">数据对比</h2>
-    <div id="compareTypeFilter" style="text-align:center;margin-bottom:var(--sp-md)"></div>
     <div id="compareSlots"></div>
+    <div id="compareTypeFilter" style="text-align:center;margin-bottom:var(--sp-md)"></div>
     <div id="compareAddBtn" style="margin:var(--sp-md) 0">
       <button class="pill" onclick="addCompareSlot()">+ 添加对比项</button>
     </div>
@@ -1212,6 +1641,71 @@ async function loadData(year) {
   return data;
 }
 
+async function loadForumReports() {
+  if (forumReports) return forumReports;
+  try {
+    const resp = await fetch('static/forum_reports_2026.json');
+    const data = await resp.json();
+    forumReports = data.reports || {};
+  } catch (e) {
+    forumReports = {};
+  }
+  return forumReports;
+}
+
+async function loadCollegeLogos() {
+  try {
+    const resp = await fetch('static/college_logos.json');
+    collegeLogos = await resp.json();
+  } catch (e) {
+    collegeLogos = {};
+  }
+}
+
+async function loadScoreHistory() {
+  if (scoreHistory) return scoreHistory;
+  try {
+    const resp = await fetch('static/score_history.json');
+    scoreHistory = await resp.json();
+  } catch (e) {
+    scoreHistory = null;
+  }
+  return scoreHistory;
+}
+
+async function loadAssessmentHistory() {
+  if (assessmentHistory) return assessmentHistory;
+  try {
+    const resp = await fetch('static/assessment_history.json');
+    assessmentHistory = await resp.json();
+  } catch (e) {
+    assessmentHistory = null;
+  }
+  return assessmentHistory;
+}
+
+async function loadGoldcoinHistory() {
+  if (goldcoinHistory) return goldcoinHistory;
+  try {
+    const resp = await fetch('static/goldcoin_history.json');
+    goldcoinHistory = await resp.json();
+  } catch (e) {
+    goldcoinHistory = null;
+  }
+  return goldcoinHistory;
+}
+
+async function loadMatchHistory() {
+  if (matchHistory) return matchHistory;
+  try {
+    const resp = await fetch('static/match_history.json');
+    matchHistory = await resp.json();
+  } catch (e) {
+    matchHistory = null;
+  }
+  return matchHistory;
+}
+
 // ── Hash Router ──
 function handleRoute() {
   const hash = window.location.hash || '#ladder';
@@ -1234,6 +1728,8 @@ function handleRoute() {
     dataEl.style.display = 'none';
     schoolEl.style.display = 'block';
     compareEl.style.display = 'none';
+    disposeChart('compareRadar');
+    disposeChart('compareHistory');
 
     if (hash.includes('?')) {
       const params = new URLSearchParams(hash.split('?')[1]);
@@ -1273,6 +1769,8 @@ function handleRoute() {
     statsEl.style.display = 'none';
     ladderEl.style.display = 'none';
     dataEl.style.display = 'none';
+    disposeChart('schoolRadar');
+    disposeChart('schoolHistory');
     schoolEl.style.display = 'none';
     compareEl.style.display = 'block';
 
@@ -1598,133 +2096,142 @@ function renderRadarChart() {
     };
   });
 
-  const size = Math.min(container.clientWidth || 500, 500);
-  container.innerHTML = `<canvas id="radarCanvas" width="${size*2}" height="${size*2}" style="width:${size}px;height:${size}px"></canvas>`;
-  const canvas = document.getElementById('radarCanvas');
-  drawRadarChart(canvas, dataPoints);
-  document.getElementById('radarHint').style.display = 'block';
+  disposeChart('schoolRadar');
+  container.innerHTML = '<div class="chart-container" id="schoolRadarChart"></div>';
+  const chartDom = document.getElementById('schoolRadarChart');
+  if (!chartDom) return;
+  const chart = echarts.init(chartDom, null, { devicePixelRatio: 2 });
+  chartInstances.schoolRadar = chart;
 
-  // Click handler
-  canvas.addEventListener('click', function(e) {
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const cx = (e.clientX - rect.left) * scaleX;
-    const cy = (e.clientY - rect.top) * scaleY;
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
-    const angle = Math.atan2(cy - centerY, cx - centerX);
-    const numAxes = dataPoints.length;
-    const angleStep = (2 * Math.PI) / numAxes;
+  const indicators = dataPoints.map(d => ({
+    name: d.typeName + '\n#' + d.rank,
+    max: 1
+  }));
+
+  const values = dataPoints.map(d => {
+    const ratio = d.total > 1 ? (d.rank - 1) / (d.total - 1) : 0;
+    return +(1 - ratio).toFixed(4);
+  });
+
+  chart.setOption({
+    backgroundColor: 'transparent',
+    tooltip: { show: false },
+    radar: {
+      center: ['50%', '50%'],
+      radius: '62%',
+      splitNumber: 4,
+      shape: 'polygon',
+      axisName: {
+        color: '#ffffff',
+        fontSize: 11,
+        fontFamily: 'D-DIN, Arial, sans-serif',
+        overflow: 'truncate',
+        width: 60
+      },
+      splitLine: { lineStyle: { color: 'rgba(255,255,255,0.08)', width: 1 } },
+      splitArea: { areaStyle: { color: ['transparent', 'transparent'] } },
+      axisLine: { lineStyle: { color: 'rgba(255,255,255,0.08)', width: 1 } },
+      indicator: indicators
+    },
+    series: [{
+      type: 'radar',
+      symbol: 'circle',
+      symbolSize: 8,
+      lineStyle: { color: 'rgba(255,255,255,0.6)', width: 2 },
+      areaStyle: { color: 'rgba(255,255,255,0.05)' },
+      itemStyle: { color: 'rgba(255,255,255,0.8)' },
+      emphasis: {
+        lineStyle: { color: '#ffffff', width: 3 },
+        areaStyle: { color: 'rgba(255,255,255,0.12)' },
+        itemStyle: { color: '#ffffff' }
+      },
+      data: [{ value: values, name: schoolCollege }]
+    }]
+  });
+
+  // Click handler: detect nearest axis by angle
+  chart.on('click', function(params) {
+    if (params.componentType === 'radar') {
+      const rect = chartDom.getBoundingClientRect();
+      const evt = params.event.event || params.event;
+      const clickX = (evt.clientX || evt.offsetX || 0) - rect.left;
+      const clickY = (evt.clientY || evt.offsetY || 0) - rect.top;
+      const centerX = rect.width / 2;
+      const centerY = rect.height / 2;
+      const angle = Math.atan2(clickY - centerY, clickX - centerX);
+      const numAxes = dataPoints.length;
+      const angleStep = (2 * Math.PI) / numAxes;
+      const startAngle = -Math.PI / 2;
+      let closestIdx = 0;
+      let closestDist = Infinity;
+      for (let i = 0; i < numAxes; i++) {
+        const axAngle = startAngle + i * angleStep;
+        let diff = Math.abs(angle - axAngle);
+        if (diff > Math.PI) diff = 2 * Math.PI - diff;
+        if (diff < closestDist) { closestDist = diff; closestIdx = i; }
+      }
+      if (closestDist < angleStep / 2) {
+        schoolType = types[closestIdx];
+        showTypeDetail(schoolType, true);
+        navigateToSchool(schoolCollege, schoolType, currentYear);
+      }
+    }
+  });
+
+  // ── Custom tooltip: follow mouse, show nearest axis data ──
+  const tipDiv = document.createElement('div');
+  tipDiv.className = 'radar-custom-tip';
+  chartDom.appendChild(tipDiv);
+
+  function getRadarAxis(params, rect) {
+    const evt = params.event.event || params.event;
+    const mx = (evt.clientX || evt.offsetX || 0) - rect.left;
+    const my = (evt.clientY || evt.offsetY || 0) - rect.top;
+    const cx = rect.width / 2;
+    const cy = rect.height / 2;
+    const angle = Math.atan2(my - cy, mx - cx);
+    const n = dataPoints.length;
+    const angleStep = (2 * Math.PI) / n;
     const startAngle = -Math.PI / 2;
     let closestIdx = 0;
     let closestDist = Infinity;
-    for (let i = 0; i < numAxes; i++) {
-      const axAngle = startAngle + i * angleStep;
-      let diff = Math.abs(angle - axAngle);
+    for (let i = 0; i < n; i++) {
+      let diff = Math.abs(angle - (startAngle + i * angleStep));
       if (diff > Math.PI) diff = 2 * Math.PI - diff;
-      if (diff < closestDist) {
-        closestDist = diff;
-        closestIdx = i;
-      }
+      if (diff < closestDist) { closestDist = diff; closestIdx = i; }
     }
-    if (closestDist < angleStep / 2) {
-      schoolType = types[closestIdx];
-      showTypeDetail(schoolType, true);
-      // Update URL
-      navigateToSchool(schoolCollege, schoolType, currentYear);
-    }
-  });
-}
-
-function drawRadarChart(canvas, dataPoints) {
-  const ctx = canvas.getContext('2d');
-  const w = canvas.width;
-  const h = canvas.height;
-  const cx = w / 2;
-  const cy = h / 2;
-  const outerR = Math.min(w, h) * 0.28;
-  const numAxes = dataPoints.length;
-  const angleStep = (2 * Math.PI) / numAxes;
-  const startAngle = -Math.PI / 2;
-
-  ctx.clearRect(0, 0, w, h);
-
-  // Grid heptagons
-  const gridLevels = [1, 0.75, 0.5, 0.25];
-  gridLevels.forEach(level => {
-    ctx.beginPath();
-    for (let i = 0; i < numAxes; i++) {
-      const angle = startAngle + i * angleStep;
-      const x = cx + Math.cos(angle) * outerR * level;
-      const y = cy + Math.sin(angle) * outerR * level;
-      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    }
-    ctx.closePath();
-    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-  });
-
-  // Axes
-  for (let i = 0; i < numAxes; i++) {
-    const angle = startAngle + i * angleStep;
-    ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.lineTo(cx + Math.cos(angle) * outerR, cy + Math.sin(angle) * outerR);
-    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    if (closestDist < angleStep * 0.6) return closestIdx;
+    return -1;
   }
 
-  // Data polygon
-  const points = dataPoints.map((d, i) => {
-    const ratio = d.total > 1 ? (d.rank - 1) / (d.total - 1) : 0;
-    const r = outerR * (1 - ratio);
-    const angle = startAngle + i * angleStep;
-    return { x: cx + Math.cos(angle) * r, y: cy + Math.sin(angle) * r };
+  chart.on('mousemove', function(params) {
+    if (params.componentType !== 'radar') { tipDiv.style.display = 'none'; return; }
+    const rect = chartDom.getBoundingClientRect();
+    const axisIdx = getRadarAxis(params, rect);
+    if (axisIdx < 0) { tipDiv.style.display = 'none'; return; }
+    const dp = dataPoints[axisIdx];
+    const mx = (params.event.event || params.event).clientX - rect.left;
+    const my = (params.event.event || params.event).clientY - rect.top;
+    tipDiv.innerHTML =
+      '<div class="tip-header">' + esc(dp.typeName) + '</div>' +
+      '<div class="tip-row"><span class="tip-name">排名</span> <span class="tip-rank">#' + dp.rank + ' / ' + dp.total + '</span></div>' +
+      '<div class="tip-row"><span class="tip-name">' + esc(dp.label) + '</span> <span>' + (typeof dp.value === 'number' ? dp.value.toFixed(1) : dp.value) + '</span></div>';
+    tipDiv.style.display = 'block';
+    // Position: follow mouse, keep within container
+    let left = mx + 14;
+    let top = my - 10;
+    if (left + 200 > rect.width) left = mx - 200;
+    if (top + 60 > rect.height) top = my - 70;
+    if (left < 0) left = 4;
+    if (top < 0) top = 4;
+    tipDiv.style.left = left + 'px';
+    tipDiv.style.top = top + 'px';
   });
+  chart.on('mouseout', function() { tipDiv.style.display = 'none'; });
 
-  // Fill
-  ctx.beginPath();
-  points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
-  ctx.closePath();
-  ctx.fillStyle = 'rgba(255,255,255,0.05)';
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-  ctx.lineWidth = 2;
-  ctx.stroke();
-
-  // Dots
-  points.forEach((p, i) => {
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
-    ctx.fillStyle = schoolType === dataPoints[i].typeKey ? '#ffffff' : 'rgba(255,255,255,0.8)';
-    ctx.fill();
-  });
-
-  // Labels
-  const fontSize = Math.round(w / 36);
-  const labelFont = `${fontSize}px D-DIN, Arial, sans-serif`;
-  const boldFont = `bold ${fontSize}px D-DIN-Bold, D-DIN, Arial, sans-serif`;
-
-  dataPoints.forEach((d, i) => {
-    const angle = startAngle + i * angleStep;
-    const labelR = outerR + fontSize * 3.5;
-    const lx = cx + Math.cos(angle) * labelR;
-    const ly = cy + Math.sin(angle) * labelR;
-
-    const isHighlighted = schoolType === d.typeKey;
-    ctx.font = isHighlighted ? boldFont : labelFont;
-    ctx.fillStyle = isHighlighted ? '#ffffff' : '#5a5a5f';
-    ctx.textAlign = Math.abs(Math.cos(angle)) < 0.1 ? 'center' : Math.cos(angle) > 0 ? 'left' : 'right';
-    ctx.textBaseline = Math.abs(Math.sin(angle)) < 0.1 ? 'middle' : Math.sin(angle) > 0 ? 'top' : 'bottom';
-
-    ctx.fillText(`${d.typeName} #${d.rank}`, lx, ly);
-  });
+  document.getElementById('radarHint').style.display = 'block';
 }
 
-// ── History Chart (tabbed: score / assessment / goldcoin) ──
 const HISTORY_TABS = [
   { key: 'score', label: '积分榜', data: () => scoreHistory },
   { key: 'assessment', label: '完整形态', data: () => assessmentHistory },
@@ -1773,11 +2280,6 @@ function renderHistoryChart() {
   const entries = getHistoryData(dataObj, schoolCollege);
 
   wrap.style.display = 'block';
-  const w = Math.min(wrap.clientWidth || 600, 600);
-  const h = 220;
-  const padL = 50, padR = 20, padT = 30, padB = 40;
-  const chartW = w - padL - padR;
-  const chartH = h - padT - padB;
 
   const years = entries.map(e => e.year);
   const ranks = entries.map(e => e.rank);
@@ -1787,97 +2289,98 @@ function renderHistoryChart() {
 
   // Build label for each point
   const getLabel = (e) => {
-    if (activeTab.key === 'score') return `#${e.rank} ${e.score.toFixed(1)}`;
+    if (activeTab.key === 'score') return '# ' + e.rank + ' ' + e.score.toFixed(1);
     if (activeTab.key === 'goldcoin') {
       const gc = e.goldcoin;
-      return `#${e.rank} ${gc > 0 ? '+' + gc : gc}`;
+      return '# ' + e.rank + ' ' + (gc > 0 ? '+' + gc : gc);
     }
-    return `#${e.rank}`;
+    return '# ' + e.rank;
   };
 
+  const minR = minRank - rankRange * 0.1;
+  const maxR = Math.max(1, maxRank + rankRange * 0.1);
+  const rRange = maxR - minR;
+
+  disposeChart('schoolHistory');
   wrap.innerHTML = `
     <div class="type-detail-section">
       <div class="section-subtitle">历史数据</div>
       <div class="filter-group" style="margin-bottom:var(--sp-md)">
         ${available.map(t => `<button class="pill${t.key === currentHistoryTab ? ' active' : ''}" onclick="setHistoryTab('${t.key}',this)">${t.label}</button>`).join('')}
       </div>
-      <canvas id="historyChartCanvas" width="${w*2}" height="${h*2}" style="width:${w}px;height:${h}px;display:block;margin:0 auto"></canvas>
+      <div id="schoolHistoryChart" class="history-chart-container"></div>
     </div>
   `;
 
-  const canvas = document.getElementById('historyChartCanvas');
-  const ctx = canvas.getContext('2d');
-  const cw = canvas.width;
-  const ch = canvas.height;
-  const cPadL = padL * 2, cPadR = padR * 2, cPadT = padT * 2, cPadB = padB * 2;
-  const cChartW = cw - cPadL - cPadR;
-  const cChartH = ch - cPadT - cPadB;
+  const chartDom = document.getElementById('schoolHistoryChart');
+  if (!chartDom) return;
+  const chart = echarts.init(chartDom, null, { devicePixelRatio: 2 });
+  chartInstances.schoolHistory = chart;
 
-  ctx.clearRect(0, 0, cw, ch);
-
-  const minR = minRank - rankRange * 0.1;
-  const maxR = Math.max(1, maxRank + rankRange * 0.1);
-  const rRange = maxR - minR;
-
-  // Grid lines
-  const gridSteps = 4;
-  for (let i = 0; i <= gridSteps; i++) {
-    const y = cPadT + (cChartH * i / gridSteps);
-    ctx.beginPath();
-    ctx.moveTo(cPadL, y);
-    ctx.lineTo(cPadL + cChartW, y);
-    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    const rankVal = Math.round(minR + (rRange * i / gridSteps));
-    ctx.fillStyle = 'rgba(255,255,255,0.35)';
-    ctx.font = '20px D-DIN, Arial, sans-serif';
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(`#${rankVal}`, cPadL - 8, y);
-  }
-
-  // Data points
-  const points = entries.map((e, i) => {
-    const x = cPadL + (cChartW * i / (years.length - 1));
-    const y = cPadT + (cChartH * (e.rank - minR) / rRange);
-    return { x, y, entry: e };
-  });
-
-  // Line
-  ctx.beginPath();
-  points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
-  ctx.strokeStyle = 'rgba(255,255,255,0.7)';
-  ctx.lineWidth = 2;
-  ctx.stroke();
-
-  // Area fill
-  ctx.beginPath();
-  points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
-  ctx.lineTo(points[points.length-1].x, cPadT + cChartH);
-  ctx.lineTo(points[0].x, cPadT + cChartH);
-  ctx.closePath();
-  ctx.fillStyle = 'rgba(255,255,255,0.03)';
-  ctx.fill();
-
-  // Points and labels
-  points.forEach(p => {
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
-    ctx.fillStyle = '#fff';
-    ctx.fill();
-
-    ctx.fillStyle = 'rgba(255,255,255,0.5)';
-    ctx.font = '20px D-DIN, Arial, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillText(p.entry.year, p.x, cPadT + cChartH + 8);
-
-    ctx.fillStyle = 'rgba(255,255,255,0.8)';
-    ctx.font = 'bold 20px D-DIN, Arial, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'bottom';
-    ctx.fillText(getLabel(p.entry), p.x, p.y - 8);
+  chart.setOption({
+    backgroundColor: 'transparent',
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: 'rgba(10,10,10,0.95)',
+      borderColor: '#3a3a3f',
+      textStyle: { color: '#ffffff', fontFamily: 'D-DIN, Arial, sans-serif', fontSize: 12 },
+      formatter: function(params) {
+        if (!params || params.length === 0) return '';
+        const e = entries[params[0].dataIndex];
+        return e.year + '<br/>' + getLabel(e);
+      }
+    },
+    grid: { left: 50, right: 20, top: 30, bottom: 40 },
+    xAxis: {
+      type: 'category',
+      data: years,
+      axisLine: { lineStyle: { color: 'rgba(255,255,255,0.2)' } },
+      axisTick: { show: false },
+      axisLabel: {
+        color: 'rgba(255,255,255,0.5)',
+        fontSize: 11,
+        fontFamily: 'D-DIN, Arial, sans-serif'
+      }
+    },
+    yAxis: {
+      type: 'value',
+      inverse: true,
+      min: minR,
+      max: maxR,
+      interval: Math.max(1, Math.ceil(rRange / 4)),
+      splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } },
+      axisLabel: {
+        color: 'rgba(255,255,255,0.35)',
+        fontSize: 11,
+        fontFamily: 'D-DIN, Arial, sans-serif',
+        formatter: function(v) { return '#' + Math.round(v); }
+      }
+    },
+    series: [{
+      type: 'line',
+      data: entries.map(e => e.rank),
+      symbol: 'circle',
+      symbolSize: 8,
+      lineStyle: { color: 'rgba(255,255,255,0.7)', width: 2 },
+      itemStyle: { color: '#ffffff' },
+      areaStyle: { color: 'rgba(255,255,255,0.03)' },
+      label: {
+        show: true,
+        position: 'top',
+        color: 'rgba(255,255,255,0.8)',
+        fontSize: 11,
+        fontFamily: 'D-DIN-Bold, D-DIN, Arial, sans-serif',
+        fontWeight: 'bold',
+        formatter: function(params) {
+          const e = entries[params.dataIndex];
+          return getLabel(e);
+        }
+      },
+      emphasis: {
+        focus: 'series',
+        label: { fontSize: 13 }
+      }
+    }]
   });
 }
 
@@ -1975,181 +2478,144 @@ function renderSchoolTypeFilter() {
   `;
 }
 
-function drawCompareRadarChart(canvas, slotData) {
-  // slotData: [{ label, color, typeRanks: [{ typeKey, typeName, rank, total }] }, ...]
-  const ctx = canvas.getContext('2d');
-  const w = canvas.width;
-  const h = canvas.height;
-  const cx = w / 2;
-  const cy = h / 2;
-  const outerR = Math.min(w, h) * 0.18;
-  const numAxes = slotData[0]?.typeRanks?.length || 7;
-  const angleStep = (2 * Math.PI) / numAxes;
-  const startAngle = -Math.PI / 2;
 
-  ctx.clearRect(0, 0, w, h);
+function initCompareRadarChart(containerId, slotData) {
+  // slotData: [{ label, color, typeRanks: [{ typeKey, typeName, rank, total, value? }] }, ...]
+  disposeChart('compareRadar');
+  const chartDom = document.getElementById(containerId);
+  if (!chartDom) return;
 
-  // Grid heptagons
-  const gridLevels = [1, 0.75, 0.5, 0.25];
-  gridLevels.forEach(level => {
-    ctx.beginPath();
-    for (let i = 0; i < numAxes; i++) {
-      const angle = startAngle + i * angleStep;
-      const x = cx + Math.cos(angle) * outerR * level;
-      const y = cy + Math.sin(angle) * outerR * level;
-      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    }
-    ctx.closePath();
-    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-  });
+  const chart = echarts.init(chartDom, null, { devicePixelRatio: 2 });
+  chartInstances.compareRadar = chart;
 
-  // Axes
-  for (let i = 0; i < numAxes; i++) {
-    const angle = startAngle + i * angleStep;
-    ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.lineTo(cx + Math.cos(angle) * outerR, cy + Math.sin(angle) * outerR);
-    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-  }
+  const indicators = slotData[0].typeRanks.map(d => ({
+    name: d.typeName,
+    max: 1
+  }));
 
-  // Data polygons — one per slot
-  slotData.forEach(slot => {
-    const points = slot.typeRanks.map((d, i) => {
-      const angle = startAngle + i * angleStep;
-      if (typeof d.rank !== 'number' || typeof d.total !== 'number') {
-        return { x: cx + Math.cos(angle) * outerR, y: cy + Math.sin(angle) * outerR, skip: true };
+  // Store raw rank+value data for axis-triggered tooltip
+  const rawData = slotData.map(slot =>
+    slot.typeRanks.map(d => ({
+      rank: d.rank,
+      total: d.total,
+      value: d.value ?? null
+    }))
+  );
+
+  const series = slotData.map(slot => {
+    const values = slot.typeRanks.map(d => {
+      if (typeof d.rank !== 'number' || typeof d.total !== 'number' || d.total <= 1) {
+        return null;
       }
-      const ratio = d.total > 1 ? (d.rank - 1) / (d.total - 1) : 0;
-      const r = outerR * (1 - ratio);
-      return { x: cx + Math.cos(angle) * r, y: cy + Math.sin(angle) * r, skip: false };
+      const ratio = (d.rank - 1) / (d.total - 1);
+      return +(1 - ratio).toFixed(4);
     });
-
-    const validCount = points.filter(p => !p.skip).length;
-    if (validCount >= 3) {
-      ctx.beginPath();
-      points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
-      ctx.closePath();
-      ctx.fillStyle = slot.color.replace('1)', '0.08)');
-      ctx.fill();
-      ctx.strokeStyle = slot.color;
-      ctx.lineWidth = 2;
-      ctx.stroke();
-    }
-
-    // Dots
-    points.forEach(p => {
-      if (p.skip) return;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
-      ctx.fillStyle = slot.color;
-      ctx.fill();
-    });
+    return {
+      name: slot.label,
+      type: 'radar',
+      symbol: 'circle',
+      symbolSize: 8,
+      lineStyle: { color: slot.color, width: 2 },
+      areaStyle: { color: slot.color.replace('1)', '0.08)').replace('0.9)', '0.08)') },
+      itemStyle: { color: slot.color },
+      emphasis: {
+        lineStyle: { width: 3 },
+        areaStyle: { color: slot.color.replace('1)', '0.15)').replace('0.9)', '0.15)') }
+      },
+      data: [{ value: values, name: slot.label }]
+    };
   });
 
-  // Labels — type/field name + ranks on a single line
-  const fontSize = Math.round(w / 48);
-  const labelFont = `${fontSize}px D-DIN, Arial, sans-serif`;
-  const rankFont = `${fontSize - 1}px D-DIN, Arial, sans-serif`;
-  const axisCount = slotData[0]?.typeRanks?.length || 0;
+  chart.setOption({
+    backgroundColor: 'transparent',
+    tooltip: { show: false },
+    legend: {
+      bottom: 0,
+      data: slotData.map(s => s.label),
+      textStyle: { color: 'rgba(255,255,255,0.7)', fontSize: 10, fontFamily: 'D-DIN, Arial, sans-serif' },
+      icon: 'circle',
+      itemWidth: 8,
+      itemHeight: 8
+    },
+    radar: {
+      center: ['50%', '45%'],
+      radius: '55%',
+      splitNumber: 4,
+      shape: 'polygon',
+      axisName: {
+        color: '#ffffff',
+        fontSize: 10,
+        fontFamily: 'D-DIN, Arial, sans-serif',
+        overflow: 'truncate',
+        width: 70
+      },
+      splitLine: { lineStyle: { color: 'rgba(255,255,255,0.08)', width: 1 } },
+      splitArea: { areaStyle: { color: ['transparent', 'transparent'] } },
+      axisLine: { lineStyle: { color: 'rgba(255,255,255,0.08)', width: 1 } },
+      indicator: indicators
+    },
+    series: series
+  });
 
-  for (let i = 0; i < axisCount; i++) {
-    const angle = startAngle + i * angleStep;
-    const labelR = outerR + fontSize * 0.8;
-    const lx = cx + Math.cos(angle) * labelR;
-    const ly = cy + Math.sin(angle) * labelR;
+  // ── Custom tooltip: shows all schools' data for the hovered axis ──
+  const tipDiv = document.createElement('div');
+  tipDiv.className = 'radar-custom-tip';
+  chartDom.appendChild(tipDiv);
 
-    ctx.textBaseline = Math.abs(Math.sin(angle)) < 0.1 ? 'middle' : Math.sin(angle) > 0 ? 'top' : 'bottom';
+  chart.on('mousemove', function(params) {
+    if (params.componentType !== 'radar') { tipDiv.style.display = 'none'; return; }
+    const rect = chartDom.getBoundingClientRect();
+    const evt = params.event.event || params.event;
+    const mx = (evt.clientX || evt.offsetX || 0) - rect.left;
+    const my = (evt.clientY || evt.offsetY || 0) - rect.top;
+    const cx = rect.width / 2;
+    const cy = rect.height / 2;
+    const angle = Math.atan2(my - cy, mx - cx);
+    const n = indicators.length;
+    const angleStep = (2 * Math.PI) / n;
+    const startAngle = -Math.PI / 2;
+    let axisIdx = -1;
+    let closestDist = Infinity;
+    for (let i = 0; i < n; i++) {
+      let diff = Math.abs(angle - (startAngle + i * angleStep));
+      if (diff > Math.PI) diff = 2 * Math.PI - diff;
+      if (diff < closestDist) { closestDist = diff; axisIdx = i; }
+    }
+    if (closestDist > angleStep * 0.6) { tipDiv.style.display = 'none'; return; }
 
-    // Build parts: "名称 #r1/t1 #r2/t2 ..."
-    const typeName = slotData[0].typeRanks[i]?.typeName || '';
-    const rankParts = slotData.map(slot => {
-      const tr = slot.typeRanks[i];
-      if (!tr || tr.rank === '-') return null;
-      return { text: `#${tr.rank}/${tr.total}`, color: slot.color };
-    }).filter(Boolean);
-
-    // Measure widths
-    ctx.font = labelFont;
-    const typeWidth = ctx.measureText(typeName).width;
-    ctx.font = rankFont;
-    const rankWidths = rankParts.map(p => ctx.measureText(p.text + ' ').width);
-    const totalWidth = typeWidth + rankWidths.reduce((a, b) => a + b, 0);
-
-    const cosA = Math.cos(angle);
-
-    if (Math.abs(cosA) < 0.1) {
-      // Top/bottom — center aligned
-      let drawX = lx - totalWidth / 2;
-      ctx.font = labelFont;
-      ctx.fillStyle = '#ffffff';
-      ctx.textAlign = 'left';
-      ctx.fillText(typeName, drawX, ly);
-      drawX += typeWidth;
-      ctx.font = rankFont;
-      rankParts.forEach((part, pi) => {
-        ctx.fillStyle = part.color;
-        ctx.fillText(part.text + ' ', drawX, ly);
-        drawX += rankWidths[pi];
-      });
-    } else if (cosA > 0) {
-      // Right side — left aligned, extends right
-      let drawX = lx;
-      ctx.font = labelFont;
-      ctx.fillStyle = '#ffffff';
-      ctx.textAlign = 'left';
-      ctx.fillText(typeName, drawX, ly);
-      drawX += typeWidth;
-      ctx.font = rankFont;
-      rankParts.forEach((part, pi) => {
-        ctx.fillStyle = part.color;
-        ctx.fillText(part.text + ' ', drawX, ly);
-        drawX += rankWidths[pi];
-      });
-    } else {
-      // Left side — right aligned, draw right-to-left
-      let drawX = lx;
-      for (let ri = rankParts.length - 1; ri >= 0; ri--) {
-        ctx.font = rankFont;
-        ctx.fillStyle = rankParts[ri].color;
-        ctx.textAlign = 'right';
-        ctx.fillText(' ' + rankParts[ri].text, drawX, ly);
-        drawX -= rankWidths[ri];
+    const dimName = indicators[axisIdx].name;
+    let html = '<div class="tip-header">' + esc(dimName) + '</div>';
+    for (let si = 0; si < slotData.length; si++) {
+      const slot = slotData[si];
+      const raw = rawData[si] && rawData[si][axisIdx];
+      html += '<div class="tip-row">';
+      html += '<span class="tip-dot" style="background:' + slot.color + '"></span>';
+      html += '<span class="tip-name">' + esc(slot.label.split(' · ')[0]) + '</span>';
+      if (raw && raw.rank !== '-' && raw.rank !== undefined && raw.rank !== null && raw.rank !== '?') {
+        html += ' <span class="tip-rank">#' + raw.rank + '/' + raw.total + '</span>';
+      } else {
+        html += ' <span class="tip-no-data">无数据</span>';
       }
-      ctx.font = labelFont;
-      ctx.fillStyle = '#ffffff';
-      ctx.textAlign = 'right';
-      ctx.fillText(typeName, drawX, ly);
+      if (raw && raw.value !== null && raw.value !== undefined) {
+        html += ' <span class="tip-val">(' + formatNum(raw.value) + ')</span>';
+      }
+      html += '</div>';
     }
-  }
-
-  // Legend
-  const legendY = h - 20;
-  const legendFontSize = Math.round(w / 44);
-  ctx.font = `${legendFontSize}px D-DIN, Arial, sans-serif`;
-  const legendItems = slotData.map(s => s.label);
-  const totalWidth = legendItems.reduce((sum, label) => sum + ctx.measureText(label).width + 40, 0);
-  let lx = (w - totalWidth) / 2;
-  slotData.forEach(slot => {
-    ctx.fillStyle = slot.color;
-    ctx.beginPath();
-    ctx.arc(lx + 6, legendY, 5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#ffffff';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(slot.label, lx + 16, legendY);
-    lx += ctx.measureText(slot.label).width + 40;
+    tipDiv.innerHTML = html;
+    tipDiv.style.display = 'block';
+    let left = mx + 14;
+    let top = my - 10;
+    if (left + 220 > rect.width) left = mx - 220;
+    if (top + (60 + slotData.length * 20) > rect.height) top = my - (60 + slotData.length * 20);
+    if (left < 0) left = 4;
+    if (top < 0) top = 4;
+    tipDiv.style.left = left + 'px';
+    tipDiv.style.top = top + 'px';
   });
+  chart.on('mouseout', function() { tipDiv.style.display = 'none'; });
 }
-
-// ── Type Detail ──
-// Cross-year field aliases: 2026 field -> 2025 equivalent for comparison
+// Field name aliases for cross-year compatibility
 const FIELD_YEAR_ALIASES = { eaAssembleEcon: 'eaExchangeEcon' };
-// Reverse: 2025 field -> 2026 equivalent
 const FIELD_YEAR_ALIASES_REV = {};
 for (const [k, v] of Object.entries(FIELD_YEAR_ALIASES)) FIELD_YEAR_ALIASES_REV[v] = k;
 
@@ -2282,14 +2748,103 @@ function renderTypeDetail() {
   }
 
   const fields = cfg.typeFields[schoolType] || [];
-  const numCols = cols.length;
-  const gridCols = `160px repeat(${numCols}, 1fr)`;
 
-  // Rank badge
+  // Rank badge (shared)
   const primaryCol = cols[0];
   const rankBadge = primaryCol.rank !== '-'
     ? `<span class="rank-badge" style="margin-left:12px">#${primaryCol.rank} / ${primaryCol.total}</span>`
     : '';
+
+  // ── Mobile: simplified view ──
+  if (isMobile()) {
+    // Zone legend bar (if multiple zones)
+    const zoneLegend = cols.length > 1 ? `
+      <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:var(--sp-md);color:var(--ink-mute);font-size:11px">
+        ${cols.map((c, i) => `<span>${i+1}. ${esc(c.zoneName.length > 4 ? c.zoneName.slice(0,4)+'…' : c.zoneName)}</span>`).join('<span style="margin:0 2px">·</span>')}
+      </div>
+    ` : '';
+
+    let mobileHtml = `
+      <div class="type-detail-section">
+        <div class="type-detail-header">
+          <div>
+            <span class="type-detail-title">${typeName}</span>
+            ${rankBadge}
+          </div>
+        </div>
+        ${available.length > 1 ? `
+          <div style="margin-bottom:var(--sp-md)">
+            <div class="filter-group" id="compareZoneGroup">
+              <span class="filter-label">赛区</span>
+              ${available.map(z => `<button class="pill${showZones.some(s=>s.zoneId===z.zoneId)?' active':''}" data-zone="${z.zoneId}" onclick="setDetailCompareZone(this)">${esc(z.zoneName)}</button>`).join('')}
+            </div>
+          </div>
+        ` : ''}
+        ${zoneLegend}
+        <div class="type-detail-grid-mobile">
+          ${fields.map(f => {
+            const allVals = cols.map(c => ({
+              zoneName: c.zoneName,
+              value: c.robot ? getRobotFieldValue(c.robot, f, currentYear) : null,
+              rank: getFieldRank(schoolType, f, c.zoneId, currentYear)
+            }));
+            return `<div class="type-detail-row-mobile" onclick="this.classList.toggle('expanded')">
+              <div class="type-detail-row-header">
+                <span class="type-detail-row-label">${esc(FIELD_MAP[f] || f)}</span>
+                <span class="compare-mobile-ranks">
+                  ${allVals.map(v => `
+                    <span class="compare-rank-badge">
+                      ${v.rank.rank !== '-' ? '#' + v.rank.rank : '-'}
+                    </span>
+                  `).join('')}
+                </span>
+              </div>
+              <div class="type-detail-row-expand">
+                ${allVals.map(v => `
+                  <div class="type-detail-zone-col">
+                    <span class="zone-name">${esc(v.zoneName)}</span>
+                    <span>
+                      <span style="font-weight:700;font-variant-numeric:tabular-nums">${v.value !== null ? formatNum(v.value) : '-'}</span>
+                      ${v.rank.rank !== '-' ? `<span style="font-size:11px;color:var(--ink-mute);margin-left:6px">#${v.rank.rank}/${v.rank.total}</span>` : ''}
+                    </span>
+                  </div>
+                `).join('')}
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    `;
+    // Forum reports
+    if (forumReports && forumReports[schoolCollege]) {
+      const typeReports = forumReports[schoolCollege][typeName];
+      if (typeReports && typeReports.length > 0) {
+        mobileHtml += `
+          <div class="type-detail-section" style="margin-top:var(--sp-lg)">
+            <div class="type-detail-header">
+              <span class="type-detail-title">开源报告</span>
+              <span style="font-size:13px;color:var(--ink-mute)">${typeReports.length} 篇</span>
+            </div>
+            <div class="forum-report-list">
+              ${typeReports.map(r => `
+                <a class="forum-report-item" href="${esc(r.url)}" target="_blank" rel="noopener">
+                  <span class="forum-report-title">${esc(r.title)}</span>
+                  <span class="forum-report-meta">${esc(r.author)} · ${esc(r.date)} · ♥ ${r.likes || 0}</span>
+                </a>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }
+    }
+    el.innerHTML = mobileHtml;
+    el.style.display = 'block';
+    return;
+  }
+
+  // ── Desktop grid view ──
+  const numCols = cols.length;
+  const gridCols = `160px repeat(${numCols}, 1fr)`;
 
   let html = `
     <div class="type-detail-section">
@@ -2726,20 +3281,21 @@ function renderCompareResult() {
         const ladderCfg = cfg?.ladderFields?.[typeKey];
         if (!ladderCfg) return { typeKey, typeName: TYPE_NAMES[typeKey], rank: '-', total: '?' };
         const ri = getFieldRank(typeKey, ladderCfg.field, slot.zone, slot.year, slot.college);
-        return { typeKey, typeName: TYPE_NAMES[typeKey], rank: ri.rank, total: ri.total };
+        const robot = getCompareRobot(slot.year, slot.zone, slot.college, typeKey);
+        const val = robot ? getRobotFieldValue(robot, ladderCfg.field, slot.year) : null;
+        return { typeKey, typeName: TYPE_NAMES[typeKey], rank: ri.rank, total: ri.total, value: val };
       });
       const label = `${slot.college} · ${zoneName} ${slot.year}`;
       return { label, color: slotColors[si % slotColors.length], typeRanks };
     });
 
-    const cSize = 620;
+    const cSize = Math.min(resultEl.clientWidth || 600, 600);
     resultEl.innerHTML = `
-      <div style="display:flex;justify-content:center;margin-top:var(--sp-lg)">
-        <canvas id="compareRadarCanvas" width="${cSize*2}" height="${cSize*2}" style="width:${cSize}px;height:${cSize}px"></canvas>
+      <div class="compare-radar-wrap" style="margin-top:var(--sp-lg)">
+        <div class="chart-container" id="compareRadarChart"></div>
       </div>
     `;
-    const canvas = document.getElementById('compareRadarCanvas');
-    drawCompareRadarChart(canvas, slotData);
+    initCompareRadarChart('compareRadarChart', slotData);
     renderCompareHistory();
     return;
   }
@@ -2783,19 +3339,83 @@ function renderCompareResult() {
   const radarSlotData = resolved.map((s, si) => {
     const fieldRanks = fields.map(f => {
       const ri = s.robot ? getFieldRank(compareType, f, s.zone, s.year, s.college) : { rank: '-', total: '?' };
-      return { typeKey: f, typeName: FIELD_MAP[f] || f, rank: ri.rank, total: ri.total };
+      const val = s.robot ? getRobotFieldValue(s.robot, f, s.year) : null;
+      return { typeKey: f, typeName: FIELD_MAP[f] || f, rank: ri.rank, total: ri.total, value: val };
     });
     const label = `${s.college} · ${s.zoneName} ${s.year}`;
     return { label, color: slotColors[si % slotColors.length], typeRanks: fieldRanks };
   });
-  const cSize2 = 620;
+  const cSize2 = Math.min(resultEl.clientWidth || 600, 600);
 
+  // ── Mobile: simplified view ──
+  if (isMobile()) {
+    // School legend bar
+    const schoolLabels = resolved.map((s, i) => {
+      const shortName = s.college.length > 6 ? s.college.slice(0, 5) + '…' : s.college;
+      return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px">
+        <span style="width:8px;height:8px;border-radius:50%;background:${slotColors[i % slotColors.length]};flex-shrink:0"></span>
+        ${esc(shortName)}
+      </span>`;
+    }).join('<span style="color:var(--ink-mute);margin:0 2px">·</span>');
+
+    const mobileFieldsHtml = fields.map(f => {
+      const allVals = resolved.map((s, si) => ({
+        label: s.college,
+        color: slotColors[si % slotColors.length],
+        value: s.robot ? getRobotFieldValue(s.robot, f, s.year) : null,
+        rank: s.robot ? getFieldRank(compareType, f, s.zone, s.year, s.college) : { rank: '-', total: '?' }
+      }));
+      return `<div class="type-detail-row-mobile" onclick="this.classList.toggle('expanded')">
+        <div class="type-detail-row-header">
+          <span class="type-detail-row-label">${esc(FIELD_MAP[f] || f)}</span>
+          <span class="compare-mobile-ranks">
+            ${allVals.map(v => `
+              <span class="compare-rank-badge" style="border-color:${v.color}">
+                ${v.rank.rank !== '-' ? '#' + v.rank.rank : '-'}
+              </span>
+            `).join('')}
+          </span>
+        </div>
+        <div class="type-detail-row-expand">
+          ${allVals.map(v => `
+            <div class="type-detail-zone-col">
+              <span class="zone-name" style="display:flex;align-items:center;gap:6px">
+                <span style="width:7px;height:7px;border-radius:50%;background:${v.color};flex-shrink:0"></span>
+                ${esc(v.label)}
+              </span>
+              <span>
+                <span style="font-weight:700;font-variant-numeric:tabular-nums">${v.value !== null ? formatNum(v.value) : '-'}</span>
+                ${v.rank.rank !== '-' ? `<span style="font-size:11px;color:var(--ink-mute);margin-left:6px">#${v.rank.rank}/${v.rank.total}</span>` : ''}
+              </span>
+            </div>
+          `).join('')}
+        </div>
+      </div>`;
+    }).join('');
+
+    resultEl.innerHTML = `
+      <div class="compare-radar-wrap" style="margin-bottom:var(--sp-lg)">
+        <div class="chart-container" id="compareRadarChart"></div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:var(--sp-md);color:var(--ink-mute)">
+        ${schoolLabels}
+      </div>
+      <div class="type-detail-grid-mobile">
+        ${mobileFieldsHtml}
+      </div>
+    `;
+    initCompareRadarChart('compareRadarChart', radarSlotData);
+    renderCompareHistory();
+    return;
+  }
+
+  // ── Desktop grid view ──
   const numCols = resolved.length;
   const gridCols = `160px repeat(${numCols}, 1fr)`;
 
   resultEl.innerHTML = `
-    <div style="display:flex;justify-content:center;margin-bottom:var(--sp-xl)">
-      <canvas id="compareRadarCanvas" width="${cSize2*2}" height="${cSize2*2}" style="width:${cSize2}px;height:${cSize2}px"></canvas>
+    <div class="compare-radar-wrap" style="margin-bottom:var(--sp-xl)">
+      <div class="chart-container" id="compareRadarChart"></div>
     </div>
     <div class="type-detail-grid" style="grid-template-columns:${gridCols}">
       <div class="type-detail-cell col-header corner-cell">指标</div>
@@ -2844,8 +3464,7 @@ function renderCompareResult() {
     </div>
   `;
 
-  const canvas2 = document.getElementById('compareRadarCanvas');
-  if (canvas2) drawCompareRadarChart(canvas2, radarSlotData);
+  initCompareRadarChart('compareRadarChart', radarSlotData);
 
   renderCompareHistory();
 }
@@ -2934,175 +3553,99 @@ function renderCompareHistory() {
   const maxRank = Math.max(...allRanks);
   const rankRange = maxRank - minRank || 1;
 
-  const w = Math.min(wrap.clientWidth || 600, 600);
-  const h = 240;
-  const padL = 50, padR = 20, padT = 30, padB = 55;
-  const chartW = w - padL - padR;
-  const chartH = h - padT - padB;
+  const minR = minRank - rankRange * 0.1;
+  const maxR = Math.max(1, maxRank + rankRange * 0.1);
+  const rRange = maxR - minR;
 
-  // Legend
-  const legendHtml = slotEntries.map(s =>
-    `<span style="display:inline-flex;align-items:center;gap:4px;margin:0 8px"><span style="width:10px;height:3px;background:${s.color};display:inline-block"></span><span style="font-size:12px;color:rgba(255,255,255,0.7)">${esc(s.college)}</span></span>`
-  ).join('');
-
+  disposeChart('compareHistory');
   wrap.innerHTML = `
     <div class="type-detail-section">
       <div class="filter-group" style="margin-bottom:var(--sp-sm)">
         ${available.map(t => `<button class="pill${t.key === compareHistoryTab ? ' active' : ''}" onclick="setCompareHistoryTab('${t.key}',this)">${t.label}</button>`).join('')}
       </div>
-      <div style="text-align:center;margin-bottom:var(--sp-sm)">${legendHtml}</div>
-      <canvas id="compareHistoryCanvas" width="${w*2}" height="${h*2}" style="width:${w}px;height:${h}px;display:block;margin:0 auto"></canvas>
+      <div id="compareHistoryChart" class="compare-history-chart-container"></div>
     </div>
   `;
 
-  const canvas = document.getElementById('compareHistoryCanvas');
-  const ctx = canvas.getContext('2d');
-  const cw = canvas.width;
-  const ch = canvas.height;
-  const cPadL = padL * 2, cPadR = padR * 2, cPadT = padT * 2, cPadB = padB * 2;
-  const cChartW = cw - cPadL - cPadR;
-  const cChartH = ch - cPadT - cPadB;
+  const chartDom = document.getElementById('compareHistoryChart');
+  if (!chartDom) return;
+  const chart = echarts.init(chartDom, null, { devicePixelRatio: 2 });
+  chartInstances.compareHistory = chart;
 
-  ctx.clearRect(0, 0, cw, ch);
-
-  const minR = minRank - rankRange * 0.1;
-  const maxR = Math.max(1, maxRank + rankRange * 0.1);
-  const rRange = maxR - minR;
-
-  // Grid lines
-  const gridSteps = 4;
-  for (let i = 0; i <= gridSteps; i++) {
-    const y = cPadT + (cChartH * i / gridSteps);
-    ctx.beginPath();
-    ctx.moveTo(cPadL, y);
-    ctx.lineTo(cPadL + cChartW, y);
-    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    const rankVal = Math.round(minR + (rRange * i / gridSteps));
-    ctx.fillStyle = 'rgba(255,255,255,0.35)';
-    ctx.font = '20px D-DIN, Arial, sans-serif';
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(`#${rankVal}`, cPadL - 8, y);
-  }
-
-  // Year labels on x-axis
-  years.forEach((year, i) => {
-    const x = cPadL + (cChartW * i / (years.length - 1));
-    ctx.fillStyle = 'rgba(255,255,255,0.5)';
-    ctx.font = '20px D-DIN, Arial, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillText(year, x, cPadT + cChartH + 8);
-  });
-
-  // Draw lines for each slot
-  slotEntries.forEach(slot => {
-    const points = years.map((year, i) => {
+  const seriesOption = slotEntries.map(slot => ({
+    name: slot.college,
+    type: 'line',
+    data: years.map(year => {
       const entry = slot.entries.find(e => e.year === year);
-      const x = cPadL + (cChartW * i / (years.length - 1));
-      if (!entry) return null;
-      const y = cPadT + (cChartH * (entry.rank - minR) / rRange);
-      return { x, y, entry };
-    });
+      return entry ? entry.rank : null;
+    }),
+    connectNulls: false,
+    symbol: 'circle',
+    symbolSize: 8,
+    lineStyle: { color: slot.color, width: 2 },
+    itemStyle: { color: slot.color },
+    label: {
+      show: true,
+      position: 'top',
+      color: slot.color.replace('0.9', '0.7'),
+      fontSize: 9,
+      fontFamily: 'D-DIN-Bold, D-DIN, Arial, sans-serif',
+      formatter: function(params) {
+        const entry = slot.entries.find(e => e.year === years[params.dataIndex]);
+        return entry ? getLabel(entry) : '';
+      }
+    },
+    emphasis: {
+      focus: 'series',
+      label: { fontSize: 11 }
+    }
+  }));
 
-    // Line (skip gaps)
-    ctx.beginPath();
-    let started = false;
-    points.forEach(p => {
-      if (!p) { started = false; return; }
-      if (!started) { ctx.moveTo(p.x, p.y); started = true; }
-      else ctx.lineTo(p.x, p.y);
-    });
-    ctx.strokeStyle = slot.color;
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    // Points and labels
-    points.forEach(p => {
-      if (!p) return;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
-      ctx.fillStyle = slot.color;
-      ctx.fill();
-
-      ctx.fillStyle = slot.color.replace('0.9', '0.7');
-      ctx.font = 'bold 16px D-DIN, Arial, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'bottom';
-      ctx.fillText(getLabel(p.entry), p.x, p.y - 8);
-    });
+  chart.setOption({
+    backgroundColor: 'transparent',
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: 'rgba(10,10,10,0.95)',
+      borderColor: '#3a3a3f',
+      textStyle: { color: '#ffffff', fontFamily: 'D-DIN, Arial, sans-serif', fontSize: 12 }
+    },
+    legend: {
+      bottom: 0,
+      data: slotEntries.map(s => s.college),
+      textStyle: { color: 'rgba(255,255,255,0.7)', fontSize: 10, fontFamily: 'D-DIN, Arial, sans-serif' },
+      icon: 'circle',
+      itemWidth: 8,
+      itemHeight: 8
+    },
+    grid: { left: 50, right: 20, top: 30, bottom: 55 },
+    xAxis: {
+      type: 'category',
+      data: years,
+      axisLine: { lineStyle: { color: 'rgba(255,255,255,0.2)' } },
+      axisTick: { show: false },
+      axisLabel: {
+        color: 'rgba(255,255,255,0.5)',
+        fontSize: 11,
+        fontFamily: 'D-DIN, Arial, sans-serif'
+      }
+    },
+    yAxis: {
+      type: 'value',
+      inverse: true,
+      min: minR,
+      max: maxR,
+      interval: Math.max(1, Math.ceil(rRange / 4)),
+      splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } },
+      axisLabel: {
+        color: 'rgba(255,255,255,0.35)',
+        fontSize: 11,
+        fontFamily: 'D-DIN, Arial, sans-serif',
+        formatter: function(v) { return '#' + Math.round(v); }
+      }
+    },
+    series: seriesOption
   });
 }
-
-// ── Init ──
-async function loadForumReports() {
-  if (forumReports) return forumReports;
-  try {
-    const resp = await fetch('static/forum_reports_2026.json');
-    const data = await resp.json();
-    forumReports = data.reports || {};
-  } catch (e) {
-    forumReports = {};
-  }
-  return forumReports;
-}
-
-async function loadCollegeLogos() {
-  try {
-    const resp = await fetch('static/college_logos.json');
-    collegeLogos = await resp.json();
-  } catch (e) {
-    collegeLogos = {};
-  }
-}
-
-async function loadScoreHistory() {
-  if (scoreHistory) return scoreHistory;
-  try {
-    const resp = await fetch('static/score_history.json');
-    scoreHistory = await resp.json();
-  } catch (e) {
-    scoreHistory = null;
-  }
-  return scoreHistory;
-}
-
-async function loadAssessmentHistory() {
-  if (assessmentHistory) return assessmentHistory;
-  try {
-    const resp = await fetch('static/assessment_history.json');
-    assessmentHistory = await resp.json();
-  } catch (e) {
-    assessmentHistory = null;
-  }
-  return assessmentHistory;
-}
-
-async function loadGoldcoinHistory() {
-  if (goldcoinHistory) return goldcoinHistory;
-  try {
-    const resp = await fetch('static/goldcoin_history.json');
-    goldcoinHistory = await resp.json();
-  } catch (e) {
-    goldcoinHistory = null;
-  }
-  return goldcoinHistory;
-}
-
-async function loadMatchHistory() {
-  if (matchHistory) return matchHistory;
-  try {
-    const resp = await fetch('static/match_history.json');
-    matchHistory = await resp.json();
-  } catch (e) {
-    matchHistory = null;
-  }
-  return matchHistory;
-}
-
-// ── Loading Overlay ──
 function showLoading() {
   document.getElementById('loadingOverlay').classList.remove('hidden');
 }
@@ -3363,7 +3906,74 @@ function renderLadder() {
 }
 
 // ── Data Table ──
+function renderMobileCards() {
+  const robots = getRobots(currentZone, currentType);
+  const typeFields = YEAR_CONFIG[currentYear].typeFields;
+  let fields;
+  if (currentType === 'all') {
+    fields = ['eaKDA', 'gkDamage', 'gKillCount', 'eaSmallHitRate'];
+  } else {
+    fields = typeFields[currentType] || ['eaKDA'];
+  }
+
+  // Same sort logic as renderTable
+  if (sortField) {
+    robots.sort((a, b) => {
+      let va = a[sortField], vb = b[sortField];
+      if (typeof va === 'string' && va.includes('/')) {
+        const pa = va.split('/'), pb = vb.split('/');
+        va = (parseFloat(pa[0]) || 0) + (parseFloat(pa[2]) || 0) * 0.4;
+        vb = (parseFloat(pb[0]) || 0) + (parseFloat(pb[2]) || 0) * 0.4;
+      }
+      return ((va || 0) - (vb || 0)) * sortDir;
+    });
+  } else {
+    const defaultSort = fields.find(f => f !== 'eaKDA') || fields[0];
+    if (ASC_FIELDS.has(defaultSort)) {
+      robots.sort((a, b) => ((a[defaultSort] || 0) - (b[defaultSort] || 0)));
+    } else {
+      robots.sort((a, b) => ((b[defaultSort] || 0) - (a[defaultSort] || 0)));
+    }
+  }
+
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  const filtered = search
+    ? robots.filter(r => r.teamName.toLowerCase().includes(search) || r.collegeName.toLowerCase().includes(search))
+    : robots;
+
+  const showZone = currentZone === 'all' && DATA.zones.filter(z => !YEAR_CONFIG[currentYear].excludedZones.includes(z.zoneId)).length > 1;
+
+  const container = document.querySelector('#data .table-wrap') || document.querySelector('#ladder .table-wrap');
+  container.innerHTML = `<div class="mobile-data-cards">${filtered.slice(0, 200).map((r, i) => `
+    <div class="mobile-data-card${i < 3 ? ' top3' : ''}" data-college="${esc(r.collegeName)}" data-type="${esc(currentType)}" onclick="toggleMobileCard(this)">
+      <div class="mobile-data-card-header">
+        <span class="mobile-data-card-rank${i < 3 ? ' top3' : ''}">${i + 1}</span>
+        <img src="${esc(r.collegeLogo)}" alt="" loading="lazy" width="32" height="32">
+        <div class="mobile-data-card-name">
+          <div class="mobile-data-card-team">${esc(r.teamName)}</div>
+          <div class="mobile-data-card-college">${esc(r.collegeName)}${showZone ? ' · ' + esc(r.zoneName) : ''}</div>
+        </div>
+        <span class="mobile-data-card-arrow">▾</span>
+      </div>
+      <div class="mobile-data-card-details">
+        ${fields.map(f => `
+          <div class="mobile-data-card-detail-row">
+            <span class="mobile-data-card-detail-label">${esc(FIELD_MAP[f] || f)}</span>
+            <span class="mobile-data-card-detail-value">${formatNum(r[f])}</span>
+          </div>
+        `).join('')}
+        <a class="pill mobile-data-card-detail-link" onclick="event.stopPropagation();navigateToSchool('${esc(r.collegeName)}','${esc(currentType)}','${currentYear}')">战队详情 →</a>
+      </div>
+    </div>
+  `).join('')}</div>`;
+}
+
+function toggleMobileCard(card) {
+  card.classList.toggle('expanded');
+}
+
 function renderTable() {
+  if (isMobile()) { renderMobileCards(); return; }
   const robots = getRobots(currentZone, currentType);
 
   // Determine columns
@@ -3503,6 +4113,68 @@ document.getElementById('ladderBoard').addEventListener('click', function(e) {
 document.getElementById('tableBody').addEventListener('click', function(e) {
   const row = e.target.closest('tr[data-college]');
   if (row) navigateToSchool(row.dataset.college, row.dataset.type, currentYear);
+});
+
+// ── Chart Management ──
+const chartInstances = {};
+
+function disposeChart(key) {
+  if (chartInstances[key]) {
+    chartInstances[key].dispose();
+    delete chartInstances[key];
+  }
+}
+
+// ── Mobile Helpers ──
+function isMobile() {
+  return window.innerWidth <= 600;
+}
+
+function toggleNav() {
+  document.querySelector('.nav').classList.toggle('nav-open');
+}
+
+// Close nav when a mobile link is clicked
+document.querySelector('.nav-links').addEventListener('click', function(e) {
+  if (e.target.tagName === 'A') {
+    document.querySelector('.nav').classList.remove('nav-open');
+  }
+});
+
+// ── Orientation / Resize Handler ──
+let _lastMobile = isMobile();
+let _resizeTimer = null;
+window.addEventListener('resize', function() {
+  clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(function() {
+    // Resize all ECharts instances
+    Object.values(chartInstances).forEach(c => {
+      if (c && !c.isDisposed()) c.resize();
+    });
+    const nowMobile = isMobile();
+    if (nowMobile !== _lastMobile) {
+      _lastMobile = nowMobile;
+      // Re-render current views that have mobile/desktop split
+      if (DATA) renderTable();
+      if (schoolType && document.getElementById('schoolDetail').style.display !== 'none') {
+        renderTypeDetail();
+        renderHistoryChart();
+        renderRadarChart();
+      }
+      if (document.getElementById('compareSection').style.display !== 'none') {
+        renderCompareResult();
+        if (typeof renderCompareHistory === 'function') renderCompareHistory();
+      }
+    } else if (nowMobile) {
+      // Same mode but canvas sizes may need updating
+      if (schoolType && document.getElementById('schoolDetail').style.display !== 'none') {
+        renderRadarChart();
+      }
+      if (document.getElementById('compareSection').style.display !== 'none') {
+        renderCompareResult();
+      }
+    }
+  }, 300);
 });
 
 // ── Init ──
