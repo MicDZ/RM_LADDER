@@ -417,6 +417,7 @@ td.num-cell.highlight {
   .nav { padding: var(--sp-md); }
   .nav-links { gap: var(--sp-md); }
   .ladder { grid-template-columns: 1fr; }
+  .school-grid { grid-template-columns: repeat(2, 1fr); }
   .stat-value { font-size: 26px; }
   .school-header {
     flex-wrap: wrap;
@@ -460,6 +461,7 @@ td.num-cell.highlight {
   /* Stats summary */
   .stat-value { font-size: 24px; }
   .stats-summary { gap: var(--sp-md); }
+  .school-grid { grid-template-columns: 1fr; }
 
   /* Container */
   .container { padding: 0 var(--sp-sm); }
@@ -820,6 +822,97 @@ td.num-cell.highlight {
   color: var(--on-primary);
 }
 .school-search-item:hover { background: rgba(255,255,255,0.1); }
+
+/* ── School Search Page ── */
+.school-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--sp-md);
+  margin-top: var(--sp-xl);
+  padding-bottom: var(--sp-huge);
+}
+.school-card {
+  background: var(--canvas-night-soft);
+  border: 1px solid var(--hairline-on-dark);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-lg);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-md);
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+  color: var(--on-primary);
+}
+.school-card:hover {
+  border-color: var(--on-primary);
+  background: rgba(255,255,255,0.04);
+}
+.school-card-logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #fff;
+  padding: 2px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.school-card-info { flex: 1; min-width: 0; }
+.school-card-name {
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 2px;
+}
+.school-card-team {
+  color: var(--ink-mute);
+  font-size: 13px;
+}
+.school-card-zone {
+  color: var(--ink-mute);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+/* Search input glow effect */
+.school-search-glow {
+  position: relative;
+  max-width: 480px;
+  margin: var(--sp-xl) auto 0;
+}
+.school-search-glow::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.05));
+  opacity: 0;
+  transition: opacity 0.3s;
+  z-index: -1;
+}
+.school-search-glow:focus-within::before {
+  opacity: 1;
+}
+.school-search-glow input {
+  width: 100%;
+  padding: 14px 20px;
+  font-family: var(--font-body);
+  font-size: 16px;
+  color: var(--on-primary);
+  background: var(--canvas-night-soft);
+  border: 1px solid var(--hairline-on-dark);
+  border-radius: var(--radius-pill);
+  outline: none;
+  transition: border-color 0.2s;
+}
+.school-search-glow input:focus {
+  border-color: var(--on-primary);
+}
+.school-search-glow input::placeholder {
+  color: var(--ink-mute);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 14px;
+}
 .radar-wrap {
   display: flex;
   justify-content: center;
@@ -1254,42 +1347,34 @@ td.num-cell.highlight {
   display: flex;
   align-items: center;
   gap: var(--sp-sm);
-  padding: var(--sp-sm) 0;
+  padding: var(--sp-md);
+  background: var(--canvas-night-soft);
+  border: 1px solid var(--hairline-on-dark);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--sp-sm);
   flex-wrap: wrap;
 }
 .compare-select {
-  padding: 8px 12px;
-  background: var(--canvas-night-soft);
+  padding: 8px 14px;
+  background: transparent;
   color: var(--on-primary);
   border: 1px solid var(--hairline-on-dark);
   border-radius: var(--radius-pill);
   font-family: var(--font-body);
   font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
   cursor: pointer;
   outline: none;
   min-width: 120px;
   -webkit-appearance: none;
+  transition: border-color 0.2s;
 }
 .compare-select:focus { border-color: var(--on-primary); }
 .compare-select option { background: #1a1a1a; color: #fff; }
 .compare-remove {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: none;
-  border: 1px solid var(--hairline-on-dark);
-  color: var(--ink-mute);
-  cursor: pointer;
-  font-size: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.compare-remove:hover { border-color: #e74c3c; color: #e74c3c; }
-.compare-reorder {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: none;
   border: 1px solid var(--hairline-on-dark);
@@ -1300,11 +1385,29 @@ td.num-cell.highlight {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  transition: all 0.2s;
+  margin-left: auto;
+}
+.compare-remove:hover { border-color: #e74c3c; color: #e74c3c; }
+.compare-reorder {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: none;
+  border: 1px solid var(--hairline-on-dark);
+  color: var(--ink-mute);
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s;
 }
 .compare-reorder:hover { border-color: var(--on-primary); color: var(--on-primary); }
 .compare-school-logo {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: #fff;
   padding: 2px;
@@ -1403,6 +1506,7 @@ td.num-cell.highlight {
     <a href="#ladder" class="active">天梯榜</a>
     <a href="#data">数据查询</a>
     <a href="#compare">数据对比</a>
+    <a href="#qualifiers">晋级名单</a>
     <a href="#school">战队详情</a>
   </div>
 </nav>
@@ -1443,26 +1547,43 @@ td.num-cell.highlight {
 
   <!-- School Detail Section -->
   <section id="schoolDetail" style="display:none;padding-top:120px">
-    <a href="#ladder" class="pill" style="margin-bottom:var(--sp-xl);display:inline-flex;align-items:center;gap:8px;text-decoration:none">← 返回榜单</a>
-    <div id="schoolHeader"></div>
-    <div id="historyChartWrap" style="display:none;margin-bottom:var(--sp-xl)"></div>
-    <div id="schoolZoneFilter"></div>
-    <div id="schoolRadarWrap" class="radar-wrap"></div>
-    <p id="radarHint" style="text-align:center;color:var(--ink-mute);font-size:13px;margin-top:-8px;margin-bottom:var(--sp-lg);display:none">点击雷达图上的兵种节点查看具体数据</p>
-    <div id="schoolTypeFilter" style="display:none;text-align:center;margin-bottom:var(--sp-md)"></div>
-    <div id="schoolTypeDetail" style="display:none"></div>
+    <!-- 搜索页 -->
+    <div id="schoolSearchPage">
+      <h2 class="section-title" style="text-align:center;margin-top:var(--sp-huge)">战队检索</h2>
+      <div id="schoolSearchFilters"></div>
+      <div id="schoolSearchInputWrap"></div>
+      <div id="schoolSearchGrid" class="school-grid"></div>
+    </div>
+    <!-- 详情页 -->
+    <div id="schoolDetailPage" style="display:none">
+      <a href="#school" class="pill" style="margin-bottom:var(--sp-xl);display:inline-flex;align-items:center;gap:8px;text-decoration:none">← 返回检索</a>
+      <div id="schoolHeader"></div>
+      <div id="historyChartWrap" style="display:none;margin-bottom:var(--sp-xl)"></div>
+      <div id="schoolZoneFilter"></div>
+      <div id="schoolRadarWrap" class="radar-wrap"></div>
+      <p id="radarHint" style="text-align:center;color:var(--ink-mute);font-size:13px;margin-top:-8px;margin-bottom:var(--sp-lg);display:none">点击雷达图上的兵种节点查看具体数据</p>
+      <div id="schoolTypeFilter" style="display:none;text-align:center;margin-bottom:var(--sp-md)"></div>
+      <div id="schoolTypeDetail" style="display:none"></div>
+    </div>
   </section>
 
   <!-- Compare Section -->
   <section id="compareSection" style="display:none;padding-top:120px">
     <h2 class="section-title">数据对比</h2>
     <div id="compareSlots"></div>
-    <div id="compareTypeFilter" style="text-align:center;margin-bottom:var(--sp-md)"></div>
     <div id="compareAddBtn" style="margin:var(--sp-md) 0">
       <button class="pill" onclick="addCompareSlot()">+ 添加对比项</button>
     </div>
+    <div id="compareTypeFilter" style="text-align:center;margin-bottom:var(--sp-md)"></div>
     <div id="compareResult"></div>
     <div id="compareHistoryWrap" style="display:none;margin-top:var(--sp-xl)"></div>
+  </section>
+
+  <!-- Qualifiers Section -->
+  <section id="qualifiers" style="display:none;padding-top:120px">
+    <h2 class="section-title">晋级名单</h2>
+    <div class="filter-bar" id="qualifiersFilters"></div>
+    <div id="qualifiersContent"></div>
   </section>
 
 </div>
@@ -1710,7 +1831,7 @@ async function loadMatchHistory() {
 function handleRoute() {
   const hash = window.location.hash || '#ladder';
   // Update nav active state
-  const navBase = hash.startsWith('#school') ? '#school' : (hash === '#compare' ? '#compare' : (hash === '#data' ? '#data' : '#ladder'));
+  const navBase = hash.startsWith('#school') ? '#school' : (hash === '#compare' ? '#compare' : (hash === '#qualifiers' ? '#qualifiers' : (hash === '#data' ? '#data' : '#ladder')));
   document.querySelectorAll('.nav-links a').forEach(a => {
     a.classList.toggle('active', a.getAttribute('href') === navBase);
   });
@@ -1720,6 +1841,7 @@ function handleRoute() {
   const dataEl = document.getElementById('data');
   const schoolEl = document.getElementById('schoolDetail');
   const compareEl = document.getElementById('compareSection');
+  const qualifiersEl = document.getElementById('qualifiers');
 
   if (hash.startsWith('#school')) {
     heroEl.style.display = 'none';
@@ -1728,6 +1850,7 @@ function handleRoute() {
     dataEl.style.display = 'none';
     schoolEl.style.display = 'block';
     compareEl.style.display = 'none';
+    qualifiersEl.style.display = 'none';
     disposeChart('compareRadar');
     disposeChart('compareHistory');
 
@@ -1773,6 +1896,7 @@ function handleRoute() {
     disposeChart('schoolHistory');
     schoolEl.style.display = 'none';
     compareEl.style.display = 'block';
+    qualifiersEl.style.display = 'none';
 
     if (!DATA) {
       showLoading();
@@ -1784,6 +1908,25 @@ function handleRoute() {
     } else {
       renderComparePage();
     }
+  } else if (hash === '#qualifiers') {
+    heroEl.style.display = 'none';
+    statsEl.style.display = 'none';
+    ladderEl.style.display = 'none';
+    dataEl.style.display = 'none';
+    schoolEl.style.display = 'none';
+    compareEl.style.display = 'none';
+    qualifiersEl.style.display = 'block';
+
+    if (!DATA) {
+      showLoading();
+      loadData(currentYear).then(data => {
+        DATA = data;
+        renderQualifiers();
+        hideLoading();
+      });
+    } else {
+      renderQualifiers();
+    }
   } else {
     heroEl.style.display = '';
     statsEl.style.display = '';
@@ -1791,6 +1934,7 @@ function handleRoute() {
     dataEl.style.display = '';
     schoolEl.style.display = 'none';
     compareEl.style.display = 'none';
+    qualifiersEl.style.display = 'none';
 
     if (!DATA) {
       showLoading();
@@ -1895,7 +2039,9 @@ function getAllColleges(year) {
     const cfg = YEAR_CONFIG[y];
     yearData.zones.forEach(z => {
       if (cfg.excludedZones.includes(z.zoneId)) return;
-      z.teams.forEach(t => colleges.add(t.collegeName));
+      z.teams.forEach(t => {
+        if (passesQualifierFilter(t.collegeName)) colleges.add(t.collegeName);
+      });
     });
   }
   return [...colleges].sort();
@@ -1905,68 +2051,76 @@ function selectSchool(college) {
   navigateToSchool(college, '', currentYear);
 }
 
-function renderSchoolSearch(containerId, colleges, selected) {
-  const html = `
-    <div class="school-search" style="position:relative;min-width:200px">
-      <input id="schoolSearchInput" class="compare-select" autocomplete="off"
-        placeholder="搜索学校..." value="${esc(selected)}"
-        oninput="filterSchoolList()" onfocus="filterSchoolList()"
-        style="min-width:200px;cursor:text">
-      <input type="hidden" id="schoolSearchValue" value="${esc(selected)}">
-      <div id="schoolSearchDropdown" class="school-search-dropdown" style="display:none"></div>
+function renderSchoolSearchPage() {
+  const colleges = getAllColleges(currentYear);
+
+  // 渲染筛选器
+  document.getElementById('schoolSearchFilters').innerHTML = `
+    <div class="filter-bar" style="justify-content:center;padding-top:0">
+      ${qualifierFilterHtml()}
     </div>
   `;
-  document.getElementById(containerId).innerHTML = html;
+
+  // 渲染搜索框
+  document.getElementById('schoolSearchInputWrap').innerHTML = `
+    <div class="school-search-glow">
+      <input id="schoolSearchInput" autocomplete="off"
+        placeholder="搜索学校..." value=""
+        oninput="filterSchoolGrid()">
+    </div>
+  `;
+
+  // 渲染学校卡片网格
+  renderSchoolGrid(colleges);
   window._schoolSearchColleges = colleges;
 }
 
-function filterSchoolList() {
-  const input = document.getElementById('schoolSearchInput');
-  const dropdown = document.getElementById('schoolSearchDropdown');
-  const query = input.value.toLowerCase();
-  const filtered = window._schoolSearchColleges.filter(c => c.toLowerCase().includes(query));
-  if (filtered.length === 0 || (filtered.length === 1 && filtered[0] === input.value)) {
-    dropdown.style.display = 'none';
-    return;
-  }
-  dropdown.innerHTML = filtered.map(c =>
-    `<div class="school-search-item" onmousedown="event.preventDefault();selectSchool('${esc(c)}')">${esc(c)}</div>`
-  ).join('');
-  dropdown.style.display = 'block';
+function renderSchoolGrid(colleges) {
+  const grid = document.getElementById('schoolSearchGrid');
+  const logos = typeof collegeLogos !== 'undefined' ? collegeLogos : {};
+
+  grid.innerHTML = colleges.map(name => {
+    const logo = logos[name] || '';
+    const teams = getCollegeTeams(name);
+    const teamName = teams.length > 0 ? teams[0].team.name : '';
+    const zones = [...new Set(teams.map(t => t.zoneName))].join(' · ');
+
+    return `
+      <a class="school-card" href="#school?college=${encodeURIComponent(name)}&year=${currentYear}">
+        ${logo ? `<img class="school-card-logo" src="${esc(logo)}" alt="">` : ''}
+        <div class="school-card-info">
+          <div class="school-card-name">${esc(name)}</div>
+          ${teamName ? `<div class="school-card-team">${esc(teamName)}</div>` : ''}
+          ${zones ? `<div class="school-card-zone">${esc(zones)}</div>` : ''}
+        </div>
+      </a>
+    `;
+  }).join('');
 }
 
-// Close dropdown on outside click
-document.addEventListener('click', function(e) {
-  if (!e.target.closest('.school-search')) {
-    const dd = document.getElementById('schoolSearchDropdown');
-    if (dd) dd.style.display = 'none';
-  }
-});
+function filterSchoolGrid() {
+  const input = document.getElementById('schoolSearchInput');
+  const query = input.value.toLowerCase();
+  const filtered = window._schoolSearchColleges.filter(c => c.toLowerCase().includes(query));
+  renderSchoolGrid(filtered);
+}
 
 function renderSchoolDetail() {
+  const searchPage = document.getElementById('schoolSearchPage');
+  const detailPage = document.getElementById('schoolDetailPage');
+
   if (!schoolCollege) {
-    // No school selected — show search picker
-    const colleges = getAllColleges(currentYear);
-    document.getElementById('schoolHeader').innerHTML = `
-      <div style="display:flex;align-items:center;gap:var(--sp-md);flex-wrap:wrap">
-        <span style="color:var(--ink-mute);font-size:14px">选择学校</span>
-        <div class="school-search" style="position:relative;min-width:240px">
-          <input id="schoolSearchInput" class="compare-select" autocomplete="off"
-            placeholder="搜索学校..." value=""
-            oninput="filterSchoolList()" onfocus="filterSchoolList()"
-            style="min-width:240px;cursor:text;font-size:15px">
-          <div id="schoolSearchDropdown" class="school-search-dropdown" style="display:none;min-width:240px"></div>
-        </div>
-      </div>
-    `;
-    window._schoolSearchColleges = colleges;
-    document.getElementById('schoolZoneFilter').innerHTML = '';
-    document.getElementById('schoolRadarWrap').innerHTML = '';
-    document.getElementById('schoolTypeDetail').style.display = 'none';
-    document.getElementById('historyChartWrap').style.display = 'none';
-    document.getElementById('schoolTypeFilter').style.display = 'none';
+    // 显示搜索页
+    searchPage.style.display = 'block';
+    detailPage.style.display = 'none';
+    renderSchoolSearchPage();
     return;
   }
+
+  // 显示详情页
+  searchPage.style.display = 'none';
+  detailPage.style.display = 'block';
+
   const teams = getCollegeTeams(schoolCollege);
   if (teams.length === 0) {
     document.getElementById('schoolHeader').innerHTML = '<p style="color:var(--ink-mute)">未找到该学校的数据</p>';
@@ -1977,22 +2131,12 @@ function renderSchoolDetail() {
   const teamName = teams[0].team.name;
   const zoneSummary = teams.map(t => t.zoneName).join(' · ');
 
-  const allColleges = getAllColleges(currentYear);
-  window._schoolSearchColleges = allColleges;
-
   document.getElementById('schoolHeader').innerHTML = `
     <div class="school-header">
       <img class="school-logo" src="${esc(logo)}" alt="" width="64" height="64">
       <div style="flex:1">
         <h2 class="section-title" style="margin:0">${esc(schoolCollege)}</h2>
         <div style="color:var(--ink-mute);font-size:14px">${esc(teamName)} · ${esc(zoneSummary)}</div>
-      </div>
-      <div class="school-search" style="position:relative;min-width:200px">
-        <input id="schoolSearchInput" class="compare-select" autocomplete="off"
-          placeholder="搜索学校..." value="${esc(schoolCollege)}"
-          oninput="filterSchoolList()" onfocus="filterSchoolList()"
-          style="min-width:200px;cursor:text;font-size:14px">
-        <div id="schoolSearchDropdown" class="school-search-dropdown" style="display:none;min-width:200px"></div>
       </div>
     </div>
   `;
@@ -2016,10 +2160,10 @@ function renderSchoolDetail() {
         <span class="filter-label">年份</span>
         ${availableYears.map(y => `<button class="pill${y===currentYear?' active':''}" onclick="setSchoolYear('${y}',this)">${y}</button>`).join('')}
       </div>
-      <div class="filter-group">
+      ${!qualifierFilter ? `<div class="filter-group">
         <span class="filter-label">赛区</span>
         ${allZones.map(z => `<button class="pill${z.zoneId===schoolZone?' active':''}" onclick="setSchoolZone('${z.zoneId}',this)">${esc(z.zoneName)}</button>`).join('')}
-      </div>
+      </div>` : ''}
     </div>
   `;
 
@@ -3115,8 +3259,10 @@ function getCompareColleges(year, zoneId) {
   const colleges = [];
   yearData.zones.forEach(z => {
     if (cfg.excludedZones.includes(z.zoneId)) return;
-    if (z.zoneId !== zoneId) return;
+    // When qualifier filter is active, show colleges from all zones
+    if (!qualifierFilter && z.zoneId !== zoneId) return;
     z.teams.forEach(t => {
+      if (!passesQualifierFilter(t.collegeName)) return;
       if (!colleges.find(c => c.name === t.collegeName)) {
         colleges.push({ name: t.collegeName, logo: collegeLogos[t.collegeName] || t.collegeLogo || '' });
       }
@@ -3216,7 +3362,18 @@ function renderComparePage() {
 
   // Render slot selectors
   const slotsEl = document.getElementById('compareSlots');
-  slotsEl.innerHTML = compareSlots.map((slot, idx) => {
+  // Reset slot college if it's no longer in the filtered list
+  compareSlots.forEach(slot => {
+    const zones = getCompareZones(slot.year);
+    if (qualifierFilter && zones.length > 0 && slot.zone !== zones[0].zoneId) {
+      slot.zone = zones[0].zoneId;
+    }
+    const colleges = getCompareColleges(slot.year, slot.zone);
+    if (colleges.length > 0 && !colleges.find(c => c.name === slot.college)) {
+      slot.college = colleges[0].name;
+    }
+  });
+  slotsEl.innerHTML = qualifierFilterHtml() + compareSlots.map((slot, idx) => {
     const zones = getCompareZones(slot.year);
     const colleges = getCompareColleges(slot.year, slot.zone);
     const selCollege = colleges.find(c => c.name === slot.college);
@@ -3226,9 +3383,9 @@ function renderComparePage() {
       <select class="compare-select" onchange="onCompareSlotChange(${idx},'year',this.value)">
         ${YEAR_ORDER.map(y => `<option value="${y}"${y===slot.year?' selected':''}>${y}</option>`).join('')}
       </select>
-      <select class="compare-select" onchange="onCompareSlotChange(${idx},'zone',this.value)">
+      ${!qualifierFilter ? `<select class="compare-select" onchange="onCompareSlotChange(${idx},'zone',this.value)">
         ${zones.map(z => `<option value="${z.zoneId}"${z.zoneId===slot.zone?' selected':''}>${z.zoneName}</option>`).join('')}
-      </select>
+      </select>` : ''}
       <select class="compare-select" onchange="onCompareSlotChange(${idx},'college',this.value)" style="min-width:180px">
         ${colleges.map(c => `<option value="${esc(c.name)}"${c.name===slot.college?' selected':''}>${esc(c.name)}</option>`).join('')}
       </select>
@@ -3501,151 +3658,597 @@ function renderCompareHistory() {
     });
   });
 
-  if (available.length === 0) {
-    wrap.style.display = 'none';
-    return;
-  }
-
   if (!available.find(t => t.key === compareHistoryTab)) {
-    compareHistoryTab = available[0].key;
+    compareHistoryTab = available.length > 0 ? available[0].key : 'score';
   }
-
-  const activeTab = available.find(t => t.key === compareHistoryTab);
-  const dataObj = activeTab.data();
 
   const slotColors = [
     'rgba(255,255,255,0.9)', 'rgba(46,204,113,0.9)', 'rgba(52,152,219,0.9)',
     'rgba(231,76,60,0.9)',
   ];
 
-  // Collect entries per slot
-  const slotEntries = compareSlots.map((slot, si) => {
-    const entries = dataObj.schools[slot.college] || [];
-    return { college: slot.college, entries, color: slotColors[si % slotColors.length] };
-  }).filter(s => s.entries.length >= 2);
+  // ── Head-to-head match history ──
+  const h2hHtml = renderCompareH2H();
 
-  if (slotEntries.length < 2) {
+  // If no chart tabs have data and no h2h matches, hide everything
+  if (available.length === 0 && !h2hHtml) {
     wrap.style.display = 'none';
     return;
   }
 
   wrap.style.display = 'block';
 
-  // Collect all years across slots
-  const allYears = new Set();
-  slotEntries.forEach(s => s.entries.forEach(e => allYears.add(e.year)));
-  const years = [...allYears].sort();
+  // Build chart section
+  let chartHtml = '';
+  if (available.length > 0) {
+    const activeTab = available.find(t => t.key === compareHistoryTab);
+    const dataObj = activeTab.data();
 
-  // Build label
-  const getLabel = (e) => {
-    if (activeTab.key === 'score') return `#${e.rank} ${e.score.toFixed(1)}`;
-    if (activeTab.key === 'goldcoin') {
-      const gc = e.goldcoin;
-      return `#${e.rank} ${gc > 0 ? '+' + gc : gc}`;
+    // Collect entries per slot
+    const slotEntries = compareSlots.map((slot, si) => {
+      const entries = dataObj.schools[slot.college] || [];
+      return { college: slot.college, entries, color: slotColors[si % slotColors.length] };
+    }).filter(s => s.entries.length >= 2);
+
+    if (slotEntries.length >= 2) {
+      // Collect all years across slots
+      const allYears = new Set();
+      slotEntries.forEach(s => s.entries.forEach(e => allYears.add(e.year)));
+      const years = [...allYears].sort();
+
+      // Build label
+      const getLabel = (e) => {
+        if (activeTab.key === 'score') return `#${e.rank} ${e.score.toFixed(1)}`;
+        if (activeTab.key === 'goldcoin') {
+          const gc = e.goldcoin;
+          return `#${e.rank} ${gc > 0 ? '+' + gc : gc}`;
+        }
+        return `#${e.rank}`;
+      };
+
+      // Collect all ranks for scaling
+      const allRanks = [];
+      slotEntries.forEach(s => s.entries.forEach(e => allRanks.push(e.rank)));
+      const minRank = Math.min(...allRanks);
+      const maxRank = Math.max(...allRanks);
+      const rankRange = maxRank - minRank || 1;
+
+      const minR = minRank - rankRange * 0.1;
+      const maxR = Math.max(1, maxRank + rankRange * 0.1);
+      const rRange = maxR - minR;
+
+      chartHtml = `
+        <div class="type-detail-section">
+          <div class="filter-group" style="margin-bottom:var(--sp-sm)">
+            ${available.map(t => `<button class="pill${t.key === compareHistoryTab ? ' active' : ''}" onclick="setCompareHistoryTab('${t.key}',this)">${t.label}</button>`).join('')}
+          </div>
+          <div id="compareHistoryChart" class="compare-history-chart-container"></div>
+        </div>
+      `;
+
+      // Store chart config for deferred init
+      wrap._chartConfig = { slotEntries, years, getLabel, minR, maxR, rRange };
     }
-    return `#${e.rank}`;
-  };
+  }
 
-  // Collect all ranks for scaling
-  const allRanks = [];
-  slotEntries.forEach(s => s.entries.forEach(e => allRanks.push(e.rank)));
-  const minRank = Math.min(...allRanks);
-  const maxRank = Math.max(...allRanks);
-  const rankRange = maxRank - minRank || 1;
+  wrap.innerHTML = chartHtml + (h2hHtml || '');
 
-  const minR = minRank - rankRange * 0.1;
-  const maxR = Math.max(1, maxRank + rankRange * 0.1);
-  const rRange = maxR - minR;
+  // Init chart if we have chart data
+  if (wrap._chartConfig) {
+    const { slotEntries, years, getLabel, minR, maxR, rRange } = wrap._chartConfig;
+    delete wrap._chartConfig;
 
-  disposeChart('compareHistory');
-  wrap.innerHTML = `
-    <div class="type-detail-section">
-      <div class="filter-group" style="margin-bottom:var(--sp-sm)">
-        ${available.map(t => `<button class="pill${t.key === compareHistoryTab ? ' active' : ''}" onclick="setCompareHistoryTab('${t.key}',this)">${t.label}</button>`).join('')}
-      </div>
-      <div id="compareHistoryChart" class="compare-history-chart-container"></div>
+    const chartDom = document.getElementById('compareHistoryChart');
+    if (chartDom) {
+      const chart = echarts.init(chartDom, null, { devicePixelRatio: 2 });
+      chartInstances.compareHistory = chart;
+
+      const seriesOption = slotEntries.map(slot => ({
+        name: slot.college,
+        type: 'line',
+        data: years.map(year => {
+          const entry = slot.entries.find(e => e.year === year);
+          return entry ? entry.rank : null;
+        }),
+        connectNulls: false,
+        symbol: 'circle',
+        symbolSize: 8,
+        lineStyle: { color: slot.color, width: 2 },
+        itemStyle: { color: slot.color },
+        label: {
+          show: true,
+          position: 'top',
+          color: slot.color.replace('0.9', '0.7'),
+          fontSize: 9,
+          fontFamily: 'D-DIN-Bold, D-DIN, Arial, sans-serif',
+          formatter: function(params) {
+            const entry = slot.entries.find(e => e.year === years[params.dataIndex]);
+            return entry ? getLabel(entry) : '';
+          }
+        },
+        emphasis: {
+          focus: 'series',
+          label: { fontSize: 11 }
+        }
+      }));
+
+      chart.setOption({
+        backgroundColor: 'transparent',
+        tooltip: {
+          trigger: 'axis',
+          backgroundColor: 'rgba(10,10,10,0.95)',
+          borderColor: '#3a3a3f',
+          textStyle: { color: '#ffffff', fontFamily: 'D-DIN, Arial, sans-serif', fontSize: 12 }
+        },
+        legend: {
+          bottom: 0,
+          data: slotEntries.map(s => s.college),
+          textStyle: { color: 'rgba(255,255,255,0.7)', fontSize: 10, fontFamily: 'D-DIN, Arial, sans-serif' },
+          icon: 'circle',
+          itemWidth: 8,
+          itemHeight: 8
+        },
+        grid: { left: 50, right: 20, top: 30, bottom: 55 },
+        xAxis: {
+          type: 'category',
+          data: years,
+          axisLine: { lineStyle: { color: 'rgba(255,255,255,0.2)' } },
+          axisTick: { show: false },
+          axisLabel: {
+            color: 'rgba(255,255,255,0.5)',
+            fontSize: 11,
+            fontFamily: 'D-DIN, Arial, sans-serif'
+          }
+        },
+        yAxis: {
+          type: 'value',
+          inverse: true,
+          min: minR,
+          max: maxR,
+          interval: Math.max(1, Math.ceil(rRange / 4)),
+          splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } },
+          axisLabel: {
+            color: 'rgba(255,255,255,0.35)',
+            fontSize: 11,
+            fontFamily: 'D-DIN, Arial, sans-serif',
+            formatter: function(v) { return '#' + Math.round(v); }
+          }
+        },
+        series: seriesOption
+      });
+    }
+  }
+}
+
+// ── Head-to-Head match records between compared schools ──
+function renderCompareH2H() {
+  if (!matchHistory) return null;
+
+  const colleges = [...new Set(compareSlots.map(s => s.college).filter(Boolean))];
+  if (colleges.length < 2) return null;
+
+  const collegeSet = new Set(colleges);
+
+  // Collect all matches between the selected schools
+  // Use a Set to deduplicate (each match appears from both sides)
+  const seen = new Set();
+  const matches = []; // { season, collegeA, collegeB, resultA, score, zone, group, order }
+
+  colleges.forEach(college => {
+    const seasons = matchHistory.schools[college];
+    if (!seasons) return;
+    seasons.forEach(seasonData => {
+      seasonData.matches.forEach(m => {
+        if (!collegeSet.has(m.opponent)) return;
+        // Deduplicate: only record from the lexicographically smaller college's perspective
+        const key = [college, m.opponent].sort().join('\t') + '\t' + m.order;
+        if (seen.has(key)) return;
+        seen.add(key);
+        matches.push({
+          season: seasonData.season,
+          collegeA: college,
+          collegeB: m.opponent,
+          resultA: m.result,
+          score: m.score,
+          zone: m.zone,
+          group: m.group,
+          order: m.order,
+          ownTeam: m.ownTeam,
+          opponentTeam: m.opponentTeam,
+        });
+      });
+    });
+  });
+
+  if (matches.length === 0) return null;
+
+  // Sort by season desc, then order desc
+  matches.sort((a, b) => {
+    if (a.season !== b.season) return b.season.localeCompare(a.season);
+    return (parseInt(b.order) || 0) - (parseInt(a.order) || 0);
+  });
+
+  // Group by season
+  const bySeason = {};
+  matches.forEach(m => {
+    if (!bySeason[m.season]) bySeason[m.season] = [];
+    bySeason[m.season].push(m);
+  });
+
+  // Compute per-college head-to-head stats
+  const stats = {};
+  colleges.forEach(c => { stats[c] = { wins: 0, losses: 0 }; });
+  matches.forEach(m => {
+    if (m.resultA === 'win') {
+      stats[m.collegeA].wins++;
+      stats[m.collegeB].losses++;
+    } else if (m.resultA === 'loss') {
+      stats[m.collegeA].losses++;
+      stats[m.collegeB].wins++;
+    }
+  });
+
+  // Build HTML
+  let html = '<div class="type-detail-section">';
+  html += '<div class="section-subtitle">交手记录</div>';
+
+  // Head-to-head summary
+  html += '<div class="match-summary-bar">';
+  colleges.forEach(c => {
+    const s = stats[c];
+    html += `<span style="margin-right:var(--sp-lg)">`;
+    html += `<span style="font-weight:700;font-size:14px">${esc(c)}</span> `;
+    html += `<span class="match-stat win">${s.wins}<span class="match-stat-label">胜</span></span> `;
+    html += `<span class="match-stat loss">${s.losses}<span class="match-stat-label">负</span></span>`;
+    html += `</span>`;
+  });
+  html += `<span class="match-stat total">共 ${matches.length} 场</span>`;
+  html += '</div>';
+
+  // Per-season matches
+  const seasons = Object.keys(bySeason).sort((a, b) => b.localeCompare(a));
+  seasons.forEach(season => {
+    const seasonMatches = bySeason[season];
+    html += '<div class="match-season-group">';
+    html += `<div class="match-season-header" onclick="toggleMatchSeason(this)" style="cursor:pointer">`;
+    html += '<span class="match-season-arrow">▾</span>';
+    html += `<span class="match-season-year">${season}</span>`;
+    html += `<span class="match-season-record">${seasonMatches.length}场</span>`;
+    html += '</div>';
+
+    html += '<div class="match-list">';
+    seasonMatches.forEach(m => {
+      const resultClass = m.resultA === 'win' ? 'match-win' : m.resultA === 'loss' ? 'match-loss' : 'match-draw';
+      const resultLabel = m.resultA === 'win' ? '胜' : m.resultA === 'loss' ? '负' : '平';
+      html += `<div class="match-item ${resultClass}">`;
+      html += `<span class="match-result-badge ${resultClass}">${resultLabel}</span>`;
+      html += '<div class="match-info">';
+      html += `<span class="match-opponent">${esc(m.collegeA)} vs ${esc(m.collegeB)}</span>`;
+      html += `<span class="match-meta">${esc(m.score)} · ${esc(m.zone)} · ${esc(m.group)}</span>`;
+      html += '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+    html += '</div>';
+  });
+
+  html += '</div>';
+  return html;
+}
+
+// ── Qualifiers Page ──
+const QUALIFIERS_NATIONAL = [
+  // 南部赛区
+  { college: '华南农业大学', zone: '南部赛区', team: 'Taurus' },
+  { college: '五邑大学', zone: '南部赛区', team: 'IMCA' },
+  { college: '广州城市理工学院', zone: '南部赛区', team: '野狼' },
+  { college: '东莞理工学院', zone: '南部赛区', team: 'ACE' },
+  { college: '电子科技大学中山学院', zone: '南部赛区', team: 'RoboBraver' },
+  { college: '华南理工大学', zone: '南部赛区', team: '华南虎' },
+  { college: '上海交通大学', zone: '南部赛区', team: '交龙' },
+  { college: '深圳大学', zone: '南部赛区', team: 'RobotPilots' },
+  { college: '武汉工程大学', zone: '南部赛区', team: 'Nautilus' },
+  { college: '仲恺农业工程学院', zone: '南部赛区', team: '奇点' },
+  // 东部赛区
+  { college: '中国石油大学（华东）', zone: '东部赛区', team: 'RPS' },
+  { college: '山东科技大学', zone: '东部赛区', team: 'SmartRobot' },
+  { college: '合肥工业大学（宣城校区）', zone: '东部赛区', team: 'WDR' },
+  { college: '浙江大学', zone: '东部赛区', team: 'Hello World' },
+  { college: '北京理工大学（珠海）', zone: '东部赛区', team: '毅恒' },
+  { college: '华东理工大学', zone: '东部赛区', team: '起源' },
+  { college: '南京理工大学', zone: '东部赛区', team: 'Alliance' },
+  { college: '哈尔滨工业大学（深圳）', zone: '东部赛区', team: '南工骁鹰' },
+  // 北部赛区
+  { college: '东北大学', zone: '北部赛区', team: 'TDT' },
+  { college: '哈尔滨工业大学', zone: '北部赛区', team: 'I Hiter' },
+  { college: '哈尔滨工业大学（威海）', zone: '北部赛区', team: 'HERO' },
+  { college: '西北工业大学', zone: '北部赛区', team: 'WMJ' },
+  { college: '北京理工大学', zone: '北部赛区', team: '追梦' },
+  { college: '同济大学', zone: '北部赛区', team: 'SuperPower' },
+  { college: '西安交通大学', zone: '北部赛区', team: '笃行' },
+  { college: '复旦大学', zone: '北部赛区', team: '星云EGA' },
+  { college: '大连理工大学', zone: '北部赛区', team: '凌BUG' },
+  { college: '长安大学', zone: '北部赛区', team: 'VGD' },
+];
+
+const QUALIFIERS_REVIVAL = [
+  // 南部赛区
+  { college: '广东工业大学', zone: '南部赛区', team: 'DynamicX' },
+  { college: '桂林电子科技大学', zone: '南部赛区', team: 'Evolution' },
+  { college: '华中科技大学', zone: '南部赛区', team: '狼牙' },
+  { college: '南华大学', zone: '南部赛区', team: 'MA' },
+  { college: '深圳技术大学', zone: '南部赛区', team: '悍匠' },
+  { college: '厦门大学嘉庚学院', zone: '南部赛区', team: 'TCR' },
+  // 东部赛区
+  { college: '江南大学霞客湾校区', zone: '东部赛区', team: 'SHARK' },
+  { college: '南方科技大学', zone: '东部赛区', team: 'ARTINX' },
+  { college: '南京航空航天大学金城学院', zone: '东部赛区', team: 'Born of Fire' },
+  { college: '太原科技大学', zone: '东部赛区', team: 'NewMaker' },
+  { college: '中国科学技术大学', zone: '东部赛区', team: 'RoboWalker' },
+  { college: '中国矿业大学', zone: '东部赛区', team: 'CUBOT' },
+  // 北部赛区
+  { college: '山东理工大学', zone: '北部赛区', team: '齐奇' },
+  { college: '沈阳理工大学', zone: '北部赛区', team: 'Ambition' },
+  { college: '西安电子科技大学', zone: '北部赛区', team: 'IRobot' },
+  { college: '应急管理大学', zone: '北部赛区', team: '风暴' },
+];
+
+let qualifiersGroup = 'national'; // 'national' or 'revival'
+let qualifiersType = 'Infantry';
+let qualifiersSortField = null;
+let qualifiersSortDir = -1;
+let qualifierFilter = null; // null = all, 'national', 'revival'
+
+// Pre-built sets for fast lookup
+const QUALIFIER_NATIONAL_SET = new Set(QUALIFIERS_NATIONAL.map(q => q.college));
+const QUALIFIER_REVIVAL_SET = new Set(QUALIFIERS_REVIVAL.map(q => q.college));
+const QUALIFIER_ALL_SET = new Set([...QUALIFIER_NATIONAL_SET, ...QUALIFIER_REVIVAL_SET]);
+
+function passesQualifierFilter(collegeName) {
+  if (!qualifierFilter) return true;
+  if (qualifierFilter === 'national') return QUALIFIER_NATIONAL_SET.has(collegeName);
+  if (qualifierFilter === 'revival') return QUALIFIER_REVIVAL_SET.has(collegeName);
+  return true;
+}
+
+function setQualifierFilter(val) {
+  qualifierFilter = val;
+  const hash = window.location.hash || '#ladder';
+  if (hash.startsWith('#school')) {
+    // Re-fetch colleges for search dropdown
+    const colleges = getAllColleges(currentYear);
+    window._schoolSearchColleges = colleges;
+    renderSchoolDetail();
+  } else if (hash === '#compare') {
+    renderComparePage();
+  }
+}
+
+function qualifierFilterHtml() {
+  return `
+    <div class="filter-group" style="display:inline-flex;gap:var(--sp-xs);margin-bottom:var(--sp-sm)">
+      <button class="pill${qualifierFilter === 'national' ? ' active' : ''}" onclick="toggleQualifierFilter('national')">仅国赛队伍</button>
+      <button class="pill${qualifierFilter === 'revival' ? ' active' : ''}" onclick="toggleQualifierFilter('revival')">仅复活赛队伍</button>
     </div>
   `;
-
-  const chartDom = document.getElementById('compareHistoryChart');
-  if (!chartDom) return;
-  const chart = echarts.init(chartDom, null, { devicePixelRatio: 2 });
-  chartInstances.compareHistory = chart;
-
-  const seriesOption = slotEntries.map(slot => ({
-    name: slot.college,
-    type: 'line',
-    data: years.map(year => {
-      const entry = slot.entries.find(e => e.year === year);
-      return entry ? entry.rank : null;
-    }),
-    connectNulls: false,
-    symbol: 'circle',
-    symbolSize: 8,
-    lineStyle: { color: slot.color, width: 2 },
-    itemStyle: { color: slot.color },
-    label: {
-      show: true,
-      position: 'top',
-      color: slot.color.replace('0.9', '0.7'),
-      fontSize: 9,
-      fontFamily: 'D-DIN-Bold, D-DIN, Arial, sans-serif',
-      formatter: function(params) {
-        const entry = slot.entries.find(e => e.year === years[params.dataIndex]);
-        return entry ? getLabel(entry) : '';
-      }
-    },
-    emphasis: {
-      focus: 'series',
-      label: { fontSize: 11 }
-    }
-  }));
-
-  chart.setOption({
-    backgroundColor: 'transparent',
-    tooltip: {
-      trigger: 'axis',
-      backgroundColor: 'rgba(10,10,10,0.95)',
-      borderColor: '#3a3a3f',
-      textStyle: { color: '#ffffff', fontFamily: 'D-DIN, Arial, sans-serif', fontSize: 12 }
-    },
-    legend: {
-      bottom: 0,
-      data: slotEntries.map(s => s.college),
-      textStyle: { color: 'rgba(255,255,255,0.7)', fontSize: 10, fontFamily: 'D-DIN, Arial, sans-serif' },
-      icon: 'circle',
-      itemWidth: 8,
-      itemHeight: 8
-    },
-    grid: { left: 50, right: 20, top: 30, bottom: 55 },
-    xAxis: {
-      type: 'category',
-      data: years,
-      axisLine: { lineStyle: { color: 'rgba(255,255,255,0.2)' } },
-      axisTick: { show: false },
-      axisLabel: {
-        color: 'rgba(255,255,255,0.5)',
-        fontSize: 11,
-        fontFamily: 'D-DIN, Arial, sans-serif'
-      }
-    },
-    yAxis: {
-      type: 'value',
-      inverse: true,
-      min: minR,
-      max: maxR,
-      interval: Math.max(1, Math.ceil(rRange / 4)),
-      splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } },
-      axisLabel: {
-        color: 'rgba(255,255,255,0.35)',
-        fontSize: 11,
-        fontFamily: 'D-DIN, Arial, sans-serif',
-        formatter: function(v) { return '#' + Math.round(v); }
-      }
-    },
-    series: seriesOption
-  });
 }
+
+function toggleQualifierFilter(type) {
+  // Toggle: clicking active one turns it off
+  qualifierFilter = qualifierFilter === type ? null : type;
+  // Re-render
+  const hash = window.location.hash || '#ladder';
+  if (hash.startsWith('#school')) {
+    window._schoolSearchColleges = getAllColleges(currentYear);
+    renderSchoolDetail();
+  } else if (hash === '#compare') {
+    renderComparePage();
+  }
+}
+
+function getQualifierRobots(qualifiers, typeFilter) {
+  const robots = [];
+  DATA.zones.forEach(z => {
+    z.teams.forEach(t => {
+      const q = qualifiers.find(q => q.college === t.collegeName);
+      if (!q) return;
+      t.robots.forEach(r => {
+        if (typeFilter !== null && typeFilter !== 'all' && r.type !== typeFilter) return;
+        robots.push({
+          ...r,
+          zoneName: q.zone,
+          teamName: t.name,
+          collegeName: t.collegeName,
+          collegeLogo: collegeLogos[t.collegeName] || t.collegeLogo || '',
+          qualifierTeam: q.team,
+        });
+      });
+    });
+  });
+  return robots;
+}
+
+function computeQualifierScore(robot, type) {
+  const cfg = YEAR_CONFIG[currentYear];
+  const ladderCfg = cfg.ladderFields[type];
+  if (!ladderCfg) return null;
+  if (type === 'Infantry') {
+    const parts = (robot.eaKDA || '0/0/0').split('/');
+    const k = parseFloat(parts[0]) || 0;
+    const a = parseFloat(parts[2]) || 0;
+    return k + a * 0.4;
+  }
+  return robot[ladderCfg.field] || 0;
+}
+
+function setQualifiersGroup(group, el) {
+  qualifiersGroup = group;
+  qualifiersSortField = null;
+  qualifiersSortDir = -1;
+  el.closest('.filter-group').querySelectorAll('.pill').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderQualifiersContent();
+}
+
+function setQualifiersType(type, el) {
+  qualifiersType = type;
+  qualifiersSortField = null;
+  qualifiersSortDir = -1;
+  el.closest('.filter-group').querySelectorAll('.pill').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderQualifiersContent();
+}
+
+function onQualifiersSort(field, el) {
+  if (qualifiersSortField === field) {
+    qualifiersSortDir *= -1;
+  } else {
+    qualifiersSortField = field;
+    qualifiersSortDir = -1;
+  }
+  renderQualifiersContent();
+}
+
+function renderQualifiersContent() {
+  const contentEl = document.getElementById('qualifiersContent');
+  if (!contentEl) return;
+  const cfg = YEAR_CONFIG[currentYear];
+  const types = Object.keys(cfg.ladderFields);
+  const qualifiers = qualifiersGroup === 'national' ? QUALIFIERS_NATIONAL : QUALIFIERS_REVIVAL;
+  const groupName = qualifiersGroup === 'national' ? '全国赛晋级' : '复活赛晋级';
+
+  // ── Filter bar ──
+  let filterHtml = `
+    <div class="filter-group">
+      <span class="filter-label">赛段</span>
+      <button class="pill${qualifiersGroup === 'national' ? ' active' : ''}" onclick="setQualifiersGroup('national',this)">全国赛 (${QUALIFIERS_NATIONAL.length}支)</button>
+      <button class="pill${qualifiersGroup === 'revival' ? ' active' : ''}" onclick="setQualifiersGroup('revival',this)">复活赛 (${QUALIFIERS_REVIVAL.length}支)</button>
+    </div>
+    <div class="filter-group">
+      <span class="filter-label">兵种</span>
+      ${types.map(t => `<button class="pill${qualifiersType === t ? ' active' : ''}" onclick="setQualifiersType('${t}',this)">${TYPE_NAMES[t]}</button>`).join('')}
+    </div>
+  `;
+  document.getElementById('qualifiersFilters').innerHTML = filterHtml;
+
+  // ── Collect robots for current selection ──
+  const robots = getQualifierRobots(qualifiers, qualifiersType);
+
+  // ── Ladder: best robot per college ──
+  const collegeBest = {};
+  qualifiers.forEach(q => {
+    let bestRobot = null;
+    let bestScore = -Infinity;
+    let bestType = '';
+
+    getQualifierRobots([q], qualifiersType).forEach(r => {
+      const score = computeQualifierScore(r, qualifiersType);
+      if (score !== null && score > bestScore) {
+        bestScore = score; bestRobot = r; bestType = qualifiersType;
+      }
+    });
+    if (bestRobot) {
+      collegeBest[q.college] = { robot: bestRobot, score: bestScore, type: bestType, zone: q.zone };
+    }
+  });
+
+  const sorted = Object.entries(collegeBest).sort((a, b) => (b[1].score || 0) - (a[1].score || 0));
+
+  const rankingLabel = `按「${cfg.ladderFields[qualifiersType]?.label || qualifiersType}」排名`;
+
+  let html = '';
+
+  // Ladder
+  html += `<div class="ladder">`;
+  sorted.forEach(([college, data], i) => {
+    const r = data.robot;
+    html += `
+      <div class="ladder-card${i < 3 ? ' rank-' + (i+1) : ''}" style="cursor:pointer" onclick="navigateToSchool('${esc(college)}','${data.type}','${currentYear}')">
+        <div class="ladder-rank${i < 3 ? ' top3' : ''}">${i + 1}</div>
+        <img class="ladder-logo" src="${esc(r.collegeLogo)}" alt="" loading="lazy" width="40" height="40" style="background:#fff;padding:2px;border-radius:50%">
+        <div class="ladder-info">
+          <div class="ladder-team">${esc(r.teamName)}</div>
+          <div class="ladder-detail">${esc(college)} · ${esc(data.zone)} · ${esc(TYPE_NAMES[data.type])}</div>
+        </div>
+        <div class="ladder-score">${formatNum(data.score)}</div>
+      </div>
+    `;
+  });
+  html += `</div>`;
+  html += `<div style="color:var(--ink-mute);font-size:12px;letter-spacing:0.96px;margin:var(--sp-xs) 0 0">按「${esc(rankingLabel)}」排名</div>`;
+  html += `<div style="border-top:1px solid var(--hairline-on-dark);margin:var(--sp-xl) 0"></div>`;
+
+  // ── Table type filter ──
+  html += `<div class="filter-group" style="margin-bottom:var(--sp-md)">`;
+  html += `<span class="filter-label">兵种</span>`;
+  types.forEach(t => {
+    html += `<button class="pill${qualifiersType === t ? ' active' : ''}" onclick="setQualifiersType('${t}',this)">${TYPE_NAMES[t]}</button>`;
+  });
+  html += `</div>`;
+
+  // ── Full table (same logic as main page) ──
+  const typeFields = cfg.typeFields;
+  const displayFields = typeFields[qualifiersType] || ['eaKDA'];
+
+  // Sort robots (same logic as main page renderTable)
+  const tableRobots = [...robots];
+  if (qualifiersSortField) {
+    tableRobots.sort((a, b) => {
+      let va = a[qualifiersSortField], vb = b[qualifiersSortField];
+      if (typeof va === 'string' && va.includes('/')) {
+        const pa = va.split('/'), pb = vb.split('/');
+        va = (parseFloat(pa[0]) || 0) + (parseFloat(pa[2]) || 0) * 0.4;
+        vb = (parseFloat(pb[0]) || 0) + (parseFloat(pb[2]) || 0) * 0.4;
+      }
+      return ((va || 0) - (vb || 0)) * qualifiersSortDir;
+    });
+  } else {
+    const defaultSort = displayFields.find(f => f !== 'eaKDA') || displayFields[0];
+    if (ASC_FIELDS.has(defaultSort)) {
+      tableRobots.sort((a, b) => (a[defaultSort] || 0) - (b[defaultSort] || 0));
+    } else {
+      tableRobots.sort((a, b) => (b[defaultSort] || 0) - (a[defaultSort] || 0));
+    }
+  }
+
+  html += `<div class="table-wrap" style="max-height:60vh;overflow:auto">`;
+  html += `<table><thead><tr>`;
+  html += `<th style="width:48px;text-align:center">#</th>`;
+  html += `<th>队伍</th>`;
+  html += `<th>赛区</th>`;
+  html += `<th>兵种</th>`;
+  displayFields.forEach(f => {
+    const sorted = qualifiersSortField === f;
+    const arrow = sorted ? (qualifiersSortDir === 1 ? ' ↑' : ' ↓') : ' ↕';
+    html += `<th class="num-cell${sorted ? ' sorted' : ''}" style="cursor:pointer;text-align:right" onclick="onQualifiersSort('${f}',this)">${FIELD_MAP[f] || f}<span class="sort-arrow">${arrow}</span></th>`;
+  });
+  html += `</tr></thead><tbody>`;
+
+  tableRobots.forEach((r, i) => {
+    html += `<tr style="cursor:pointer" onclick="navigateToSchool('${esc(r.collegeName)}','${esc(r.type)}','${currentYear}')">`;
+    html += `<td class="rank-cell${i < 3 ? ' top3' : ''}">${i + 1}</td>`;
+    html += `<td><div class="team-cell"><img src="${esc(r.collegeLogo)}" alt="" width="36" height="36" style="background:#fff;padding:2px;border-radius:50%"><div class="team-text"><div class="team-name">${esc(r.teamName)}</div><div class="team-college">${esc(r.collegeName)}</div></div></div></td>`;
+    html += `<td style="color:var(--ink-mute);font-size:13px">${esc(r.zoneName)}</td>`;
+    html += `<td>${esc(TYPE_NAMES[r.type] || r.type)}</td>`;
+    displayFields.forEach((f, fi) => {
+      html += `<td class="num-cell${fi === 0 ? ' highlight' : ''}">${formatNum(r[f])}</td>`;
+    });
+    html += `</tr>`;
+  });
+
+  html += `</tbody></table></div>`;
+
+  if (tableRobots.length === 0) {
+    html += `<div style="color:var(--ink-mute);padding:var(--sp-xl);text-align:center">暂无数据</div>`;
+  }
+
+  contentEl.innerHTML = html;
+}
+
+function renderQualifiers() {
+  renderQualifiersContent();
+}
+
 function showLoading() {
   document.getElementById('loadingOverlay').classList.remove('hidden');
 }
