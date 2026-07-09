@@ -417,7 +417,12 @@ td.num-cell.highlight {
   .nav { padding: var(--sp-md); }
   .nav-links { gap: var(--sp-md); }
   .ladder { grid-template-columns: 1fr; }
-  .school-grid { grid-template-columns: repeat(2, 1fr); }
+  .school-grid { grid-template-columns: repeat(2, 1fr); gap: var(--sp-xs); margin-top: var(--sp-md); }
+  .school-card { padding: var(--sp-xs); gap: var(--sp-xs); }
+  .school-card-logo { width: 32px; height: 32px; }
+  .school-card-name { font-size: 12px; margin-bottom: 0; }
+  .school-card-team { font-size: 10px; line-height: 1.2; }
+  .school-card-zone { display: none; }
   .stat-value { font-size: 26px; }
   .school-header {
     flex-wrap: wrap;
@@ -461,7 +466,11 @@ td.num-cell.highlight {
   /* Stats summary */
   .stat-value { font-size: 24px; }
   .stats-summary { gap: var(--sp-md); }
-  .school-grid { grid-template-columns: 1fr; }
+  .school-grid { grid-template-columns: repeat(2, 1fr); gap: 6px; margin-top: var(--sp-sm); padding-bottom: var(--sp-md); }
+  .school-card { padding: 6px; gap: 6px; border-radius: var(--radius-xs); }
+  .school-card-logo { width: 28px; height: 28px; }
+  .school-card-name { font-size: 11px; }
+  .school-card-team { font-size: 9px; }
 
   /* Container */
   .container { padding: 0 var(--sp-sm); }
@@ -843,6 +852,8 @@ td.num-cell.highlight {
   transition: all 0.2s;
   text-decoration: none;
   color: var(--on-primary);
+  min-width: 0;
+  overflow: hidden;
 }
 .school-card:hover {
   border-color: var(--on-primary);
@@ -857,15 +868,21 @@ td.num-cell.highlight {
   object-fit: cover;
   flex-shrink: 0;
 }
-.school-card-info { flex: 1; min-width: 0; }
+.school-card-info { flex: 1; min-width: 0; overflow: hidden; }
 .school-card-name {
   font-weight: 700;
   font-size: 15px;
   margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .school-card-team {
   color: var(--ink-mute);
   font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .school-card-zone {
   color: var(--ink-mute);
@@ -4211,32 +4228,58 @@ function renderQualifiersContent() {
     }
   }
 
-  html += `<div class="table-wrap" style="max-height:60vh;overflow:auto">`;
-  html += `<table><thead><tr>`;
-  html += `<th style="width:48px;text-align:center">#</th>`;
-  html += `<th>队伍</th>`;
-  html += `<th>赛区</th>`;
-  html += `<th>兵种</th>`;
-  displayFields.forEach(f => {
-    const sorted = qualifiersSortField === f;
-    const arrow = sorted ? (qualifiersSortDir === 1 ? ' ↑' : ' ↓') : ' ↕';
-    html += `<th class="num-cell${sorted ? ' sorted' : ''}" style="cursor:pointer;text-align:right" onclick="onQualifiersSort('${f}',this)">${FIELD_MAP[f] || f}<span class="sort-arrow">${arrow}</span></th>`;
-  });
-  html += `</tr></thead><tbody>`;
-
-  tableRobots.forEach((r, i) => {
-    html += `<tr style="cursor:pointer" onclick="navigateToSchool('${esc(r.collegeName)}','${esc(r.type)}','${currentYear}')">`;
-    html += `<td class="rank-cell${i < 3 ? ' top3' : ''}">${i + 1}</td>`;
-    html += `<td><div class="team-cell"><img src="${esc(r.collegeLogo)}" alt="" width="36" height="36" style="background:#fff;padding:2px;border-radius:50%"><div class="team-text"><div class="team-name">${esc(r.teamName)}</div><div class="team-college">${esc(r.collegeName)}</div></div></div></td>`;
-    html += `<td style="color:var(--ink-mute);font-size:13px">${esc(r.zoneName)}</td>`;
-    html += `<td>${esc(TYPE_NAMES[r.type] || r.type)}</td>`;
-    displayFields.forEach((f, fi) => {
-      html += `<td class="num-cell${fi === 0 ? ' highlight' : ''}">${formatNum(r[f])}</td>`;
+  // Mobile: card layout / Desktop: table
+  if (isMobile()) {
+    html += `<div class="mobile-data-cards">${tableRobots.map((r, i) => `
+      <div class="mobile-data-card" onclick="toggleMobileCard(this)">
+        <div class="mobile-data-card-header">
+          <span class="mobile-data-card-rank${i < 3 ? ' top3' : ''}">${i + 1}</span>
+          <img src="${esc(r.collegeLogo)}" alt="" loading="lazy" width="32" height="32" style="background:#fff;padding:2px;border-radius:50%">
+          <div class="mobile-data-card-name">
+            <div class="mobile-data-card-team">${esc(r.teamName)}</div>
+            <div class="mobile-data-card-college">${esc(r.collegeName)} · ${esc(r.zoneName)}</div>
+          </div>
+          <span class="mobile-data-card-arrow">▾</span>
+        </div>
+        <div class="mobile-data-card-details">
+          ${displayFields.map(f => `
+            <div class="mobile-data-card-detail-row">
+              <span class="mobile-data-card-detail-label">${esc(FIELD_MAP[f] || f)}</span>
+              <span class="mobile-data-card-detail-value">${formatNum(r[f])}</span>
+            </div>
+          `).join('')}
+          <a class="pill mobile-data-card-detail-link" onclick="event.stopPropagation();navigateToSchool('${esc(r.collegeName)}','${esc(r.type)}','${currentYear}')">战队详情 →</a>
+        </div>
+      </div>
+    `).join('')}</div>`;
+  } else {
+    html += `<div class="table-wrap" style="max-height:60vh;overflow:auto">`;
+    html += `<table><thead><tr>`;
+    html += `<th style="width:48px;text-align:center">#</th>`;
+    html += `<th>队伍</th>`;
+    html += `<th>赛区</th>`;
+    html += `<th>兵种</th>`;
+    displayFields.forEach(f => {
+      const sorted = qualifiersSortField === f;
+      const arrow = sorted ? (qualifiersSortDir === 1 ? ' ↑' : ' ↓') : ' ↕';
+      html += `<th class="num-cell${sorted ? ' sorted' : ''}" style="cursor:pointer;text-align:right" onclick="onQualifiersSort('${f}',this)">${FIELD_MAP[f] || f}<span class="sort-arrow">${arrow}</span></th>`;
     });
-    html += `</tr>`;
-  });
+    html += `</tr></thead><tbody>`;
 
-  html += `</tbody></table></div>`;
+    tableRobots.forEach((r, i) => {
+      html += `<tr style="cursor:pointer" onclick="navigateToSchool('${esc(r.collegeName)}','${esc(r.type)}','${currentYear}')">`;
+      html += `<td class="rank-cell${i < 3 ? ' top3' : ''}">${i + 1}</td>`;
+      html += `<td><div class="team-cell"><img src="${esc(r.collegeLogo)}" alt="" width="36" height="36" style="background:#fff;padding:2px;border-radius:50%"><div class="team-text"><div class="team-name">${esc(r.teamName)}</div><div class="team-college">${esc(r.collegeName)}</div></div></div></td>`;
+      html += `<td style="color:var(--ink-mute);font-size:13px">${esc(r.zoneName)}</td>`;
+      html += `<td>${esc(TYPE_NAMES[r.type] || r.type)}</td>`;
+      displayFields.forEach((f, fi) => {
+        html += `<td class="num-cell${fi === 0 ? ' highlight' : ''}">${formatNum(r[f])}</td>`;
+      });
+      html += `</tr>`;
+    });
+
+    html += `</tbody></table></div>`;
+  }
 
   if (tableRobots.length === 0) {
     html += `<div style="color:var(--ink-mute);padding:var(--sp-xl);text-align:center">暂无数据</div>`;
