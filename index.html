@@ -1525,6 +1525,7 @@ td.num-cell.highlight {
     <a href="#compare">数据对比</a>
     <a href="#qualifiers">晋级名单</a>
     <a href="#school">战队详情</a>
+    <a href="analysis.html">位置热力图</a>
   </div>
 </nav>
 
@@ -3000,6 +3001,11 @@ function renderTypeDetail() {
     }
     el.innerHTML = mobileHtml;
     el.style.display = 'block';
+
+    // Render heatmap for 2026 (mobile)
+    if (currentYear === '2026') {
+      renderSchoolHeatmap(el, typeName);
+    }
     return;
   }
 
@@ -3076,6 +3082,186 @@ function renderTypeDetail() {
 
   el.innerHTML = html;
   el.style.display = 'block';
+
+  // Render heatmap for 2026
+  if (currentYear === '2026') {
+    renderSchoolHeatmap(el, typeName);
+  }
+}
+
+// ── School Heatmap ──
+function decodeGrid(base64) {
+  const bin = atob(base64);
+  const grid = [];
+  for (let y = 0; y < 60; y++) {
+    const row = [];
+    for (let x = 0; x < 60; x++) {
+      row.push(bin.charCodeAt(y * 60 + x));
+    }
+    grid.push(row);
+  }
+  return grid;
+}
+
+function decodeRobotData(encoded) {
+  if (typeof encoded === 'string') return decodeGrid(encoded);
+  if (encoded && encoded.red) return { red: decodeGrid(encoded.red), blue: decodeGrid(encoded.blue) };
+  return encoded;
+}
+
+const HEATMAP_FIELD_MAP = {
+  gameXMin: 0, gameXMax: 28,
+  gameYMin: 0, gameYMax: 15,
+  pixelXMin: 80, pixelXMax: 2110,
+  pixelYMin: 55, pixelYMax: 1145,
+  imageWidth: 2190, imageHeight: 1202
+};
+
+function getHeatmapTypeNames(typeName) {
+  if (typeName === '雷达') return ['易伤'];
+  if (typeName === '无人机') return ['空中'];
+  if (typeName === '步兵') return ['步兵3', '步兵4'];
+  return [typeName];
+}
+
+async function renderSchoolHeatmap(containerEl, typeName) {
+  const heatmapTypes = getHeatmapTypeNames(typeName);
+
+  // Find the region for this school based on zone
+  let region;
+  if (schoolZone === 'all') {
+    // Find first zone where this school exists
+    for (const z of DATA.zones) {
+      if (z.teams.some(t => t.collegeName === schoolCollege)) {
+        region = z.zoneName;
+        break;
+      }
+    }
+  } else {
+    const zone = DATA.zones.find(z => z.zoneId === schoolZone);
+    if (zone) region = zone.zoneName;
+  }
+  if (!region) return;
+
+  // Load school heatmap data
+  let schoolData;
+  try {
+    const res = await fetch(`static/heatmap/${encodeURIComponent(region)}/${encodeURIComponent(schoolCollege)}.json`);
+    if (!res.ok) return;
+    const raw = await res.json();
+    schoolData = {};
+    for (const [rtype, data] of Object.entries(raw)) {
+      schoolData[rtype] = decodeRobotData(data);
+    }
+  } catch { return; }
+
+  // Combine data from all matching types
+  const gridSize = 60;
+  const combinedRobotData = { red: null, blue: null };
+  for (const ht of heatmapTypes) {
+    const rd = schoolData[ht];
+    if (!rd) continue;
+    if (rd.red && rd.blue) {
+      if (!combinedRobotData.red) {
+        combinedRobotData.red = rd.red.map(row => [...row]);
+        combinedRobotData.blue = rd.blue.map(row => [...row]);
+      } else {
+        for (let y = 0; y < gridSize; y++) {
+          for (let x = 0; x < gridSize; x++) {
+            combinedRobotData.red[y][x] += rd.red[y][x];
+            combinedRobotData.blue[y][x] += rd.blue[y][x];
+          }
+        }
+      }
+    }
+  }
+  const robotData = combinedRobotData.red ? combinedRobotData : null;
+  if (!robotData) return;
+
+  // Add heatmap section after the existing content
+  const heatmapSection = document.createElement('div');
+  heatmapSection.className = 'type-detail-section';
+  heatmapSection.style.marginTop = 'var(--sp-lg)';
+  heatmapSection.innerHTML = `
+    <div class="type-detail-header">
+      <span class="type-detail-title">${typeName} 位置热力图</span>
+      <span style="font-size:13px;color:var(--ink-mute)">统一红方视角</span>
+    </div>
+    <div class="heatmap-wrap" style="position:relative;width:100%;max-width:800px;margin:var(--sp-md) auto">
+      <img src="static/map/26UC.jpg" alt="场地" style="width:100%;display:block" crossorigin="anonymous">
+      <canvas class="heatmap-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none"></canvas>
+    </div>
+  `;
+  containerEl.appendChild(heatmapSection);
+
+  // Render heatmap on canvas
+  const img = heatmapSection.querySelector('img');
+  const canvas = heatmapSection.querySelector('canvas');
+
+  function draw() {
+    const rect = img.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+    const ctx = canvas.getContext('2d');
+
+    const grid = Array.from({ length: gridSize }, () => Array(gridSize).fill(0));
+
+    // Flip grid for central symmetry
+    function flipGrid(g) {
+      const f = Array.from({ length: gridSize }, () => Array(gridSize).fill(0));
+      for (let y = 0; y < gridSize; y++)
+        for (let x = 0; x < gridSize; x++)
+          f[gridSize - 1 - y][gridSize - 1 - x] = g[y][x];
+      return f;
+    }
+
+    // Unified red: red direct, blue flip 180°
+    if (robotData.red && robotData.blue) {
+      const flippedBlue = flipGrid(robotData.blue);
+      for (let y = 0; y < gridSize; y++)
+        for (let x = 0; x < gridSize; x++)
+          grid[y][x] = robotData.red[y][x] + flippedBlue[y][x];
+    }
+
+    const maxVal = Math.max(...grid.flat());
+    if (maxVal === 0) return;
+
+    const { gameXMin, gameXMax, gameYMin, gameYMax,
+            pixelXMin, pixelXMax, pixelYMin, pixelYMax,
+            imageWidth, imageHeight } = HEATMAP_FIELD_MAP;
+    const scaleX = canvas.width / imageWidth;
+    const scaleY = canvas.height / imageHeight;
+    const xStep = (gameXMax - gameXMin) / gridSize;
+    const yStep = (gameYMax - gameYMin) / gridSize;
+    const cellW = (pixelXMax - pixelXMin) / gridSize * scaleX;
+    const cellH = (pixelYMax - pixelYMin) / gridSize * scaleY;
+
+    for (let gy = 0; gy < gridSize; gy++) {
+      for (let gx = 0; gx < gridSize; gx++) {
+        const value = grid[gy][gx] / maxVal;
+        if (value < 0.01) continue;
+
+        const gameX = gameXMin + (gx + 0.5) * xStep;
+        const gameY = gameYMin + (gy + 0.5) * yStep;
+        const px = pixelXMin + (gameX - gameXMin) / (gameXMax - gameXMin) * (pixelXMax - pixelXMin);
+        const py = pixelYMax - (gameY - gameYMin) / (gameYMax - gameYMin) * (pixelYMax - pixelYMin);
+        const cx = px * scaleX;
+        const cy = py * scaleY;
+
+        let r, g, b;
+        if (value < 0.25) { r = 0; g = Math.round(value * 4 * 255); b = 255; }
+        else if (value < 0.5) { r = 0; g = 255; b = Math.round((0.5 - value) * 4 * 255); }
+        else if (value < 0.75) { r = Math.round((value - 0.5) * 4 * 255); g = 255; b = 0; }
+        else { r = 255; g = Math.round((1 - value) * 4 * 255); b = 0; }
+
+        ctx.fillStyle = `rgba(${r},${g},${b},${0.3 + value * 0.5})`;
+        ctx.fillRect(cx - cellW / 2, cy - cellH / 2, cellW + 1, cellH + 1);
+      }
+    }
+  }
+
+  if (img.complete) draw();
+  else img.onload = draw;
 }
 
 function openDistribution(field, zoneId) {

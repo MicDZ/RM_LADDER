@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RM Ladder — 位置热力图</title>
+<style>
+/* ── Reset ── */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* ── Design Tokens ── */
+:root {
+  --canvas-night: #000000;
+  --canvas-night-soft: #0a0a0a;
+  --canvas-light: #ffffff;
+  --hairline-on-dark: #3a3a3f;
+  --on-primary: #ffffff;
+  --ink-mute: #5a5a5f;
+  --font-display: 'D-DIN-Bold', 'Arial Narrow', Arial, Verdana, sans-serif;
+  --font-body: 'D-DIN', Arial, Verdana, sans-serif;
+  --sp-xs: 8px;
+  --sp-sm: 12px;
+  --sp-md: 16px;
+  --sp-xl: 24px;
+  --sp-xxl: 32px;
+  --sp-huge: 48px;
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-pill: 32px;
+}
+
+/* ── Base ── */
+html { scroll-behavior: smooth; }
+body {
+  background: var(--canvas-night);
+  color: var(--on-primary);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Nav ── */
+.nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: var(--sp-xl) var(--sp-xxl);
+  background: rgba(0,0,0,0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--hairline-on-dark);
+}
+.nav-logo {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+.nav-links { display: flex; gap: var(--sp-xl); }
+.nav-links a {
+  color: var(--on-primary);
+  text-decoration: none;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.17px;
+  text-transform: uppercase;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+.nav-links a:hover, .nav-links a.active { opacity: 1; }
+
+/* ── Hero ── */
+.hero {
+  padding: 160px var(--sp-xxl) var(--sp-huge);
+  text-align: center;
+}
+.hero h1 {
+  font-family: var(--font-display);
+  font-size: clamp(40px, 6vw, 80px);
+  font-weight: 700;
+  line-height: 0.95;
+  letter-spacing: 1.6px;
+}
+.hero p {
+  margin-top: var(--sp-xl);
+  color: var(--ink-mute);
+  font-size: 16px;
+}
+
+/* ── Container ── */
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 var(--sp-xxl);
+}
+
+/* ── Filter Bar ── */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-sm);
+  padding: var(--sp-xl) 0;
+  align-items: center;
+}
+.filter-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-xs);
+}
+.filter-label {
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.96px;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin-right: var(--sp-xs);
+  display: flex;
+  align-items: center;
+  min-width: 60px;
+}
+
+/* ── Ghost Pill Buttons ── */
+.pill {
+  display: inline-block;
+  padding: 8px 18px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.17px;
+  text-transform: uppercase;
+  color: var(--on-primary);
+  background: var(--canvas-night);
+  border: 1px solid var(--on-primary);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.pill:hover { background: rgba(255,255,255,0.08); }
+.pill.active {
+  background: var(--on-primary);
+  color: var(--canvas-night);
+}
+
+/* ── Section Headers ── */
+.section-title {
+  font-family: var(--font-display);
+  font-size: 48px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0.96px;
+  text-transform: uppercase;
+  margin: var(--sp-huge) 0 var(--sp-xl);
+}
+.section-subtitle {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 1.32px;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin: 0 0 var(--sp-md);
+  padding-bottom: var(--sp-sm);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+/* ── Heatmap Container ── */
+.heatmap-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto var(--sp-huge);
+  background: var(--canvas-night-soft);
+  border: 1px solid var(--hairline-on-dark);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.heatmap-container {
+  position: relative;
+  width: 100%;
+  /* Match image aspect ratio: 2190x1202 */
+  aspect-ratio: 2190/1202;
+}
+.field-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.heatmap-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* ── School Selector ── */
+.school-scroll {
+  max-height: 180px;
+  overflow-y: auto;
+  background: var(--canvas-night-soft);
+  border: 1px solid var(--hairline-on-dark);
+  border-radius: var(--radius-xs);
+  padding: var(--sp-sm);
+  margin-bottom: var(--sp-xl);
+}
+.school-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.school-scroll::-webkit-scrollbar-track {
+  background: var(--canvas-night);
+}
+.school-scroll::-webkit-scrollbar-thumb {
+  background: var(--hairline-on-dark);
+  border-radius: 3px;
+}
+
+/* ── Legend ── */
+.legend {
+  text-align: center;
+  color: var(--ink-mute);
+  font-size: 13px;
+  margin-bottom: var(--sp-xl);
+}
+.legend-bar {
+  display: inline-block;
+  width: 20px;
+  height: 12px;
+  background: linear-gradient(to right, rgba(0,0,255,0.3), rgba(0,255,0,0.5), rgba(255,255,0,0.7), rgba(255,0,0,0.9));
+  vertical-align: middle;
+  margin-right: 8px;
+}
+
+/* ── Footer ── */
+.footer {
+  margin-top: var(--sp-huge);
+  padding: var(--sp-xxl);
+  border-top: 1px solid var(--hairline-on-dark);
+  text-align: center;
+  color: var(--ink-mute);
+  font-size: 13px;
+}
+
+/* ── Responsive ── */
+@media (max-width: 960px) {
+  .section-title { font-size: 36px; }
+}
+@media (max-width: 600px) {
+  .nav-links { display: none; }
+  .hero h1 { font-size: 36px; }
+  .section-title { font-size: 28px; }
+  .filter-group { gap: var(--sp-xs); }
+  .pill { padding: 6px 12px; font-size: 11px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav class="nav">
+  <div class="nav-logo">RM LADDER</div>
+  <div class="nav-links">
+    <a href="index.html">天梯榜</a>
+    <a href="analysis.html" class="active">位置热力图</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <h1>位置热力图</h1>
+  <p>RMUC 2026 区域赛各兵种位置分布</p>
+</section>
+
+<!-- Main Content -->
+<div class="container">
+
+  <div class="section-subtitle">场地位置分布</div>
+  <h2 class="section-title">机器人位置热力图</h2>
+
+  <!-- Filters -->
+  <div class="filter-bar">
+    <span class="filter-label">赛区</span>
+    <div class="filter-group" id="region-filters">
+      <button class="pill active" data-region="all">全部赛区</button>
+    </div>
+  </div>
+
+  <div class="filter-bar">
+    <span class="filter-label">兵种</span>
+    <div class="filter-group" id="robot-filters">
+      <button class="pill active" data-robot="all">全部</button>
+      <button class="pill" data-robot="英雄">英雄</button>
+      <button class="pill" data-robot="工程">工程</button>
+      <button class="pill" data-robot="步兵3">步兵3</button>
+      <button class="pill" data-robot="步兵4">步兵4</button>
+      <button class="pill" data-robot="空中">空中</button>
+      <button class="pill" data-robot="哨兵">哨兵</button>
+      <button class="pill" data-robot="易伤">易伤</button>
+    </div>
+  </div>
+
+  <div class="filter-bar">
+    <span class="filter-label">显示</span>
+    <div class="filter-group" id="side-filters">
+      <button class="pill active" data-side="all">双边</button>
+      <button class="pill" data-side="red">统一红方</button>
+    </div>
+  </div>
+
+  <div class="filter-bar">
+    <span class="filter-label">学校</span>
+  </div>
+  <div class="school-scroll" id="school-scroll">
+    <div class="filter-group" id="school-filters">
+      <button class="pill active" data-school="all">全部学校</button>
+    </div>
+  </div>
+
+  <!-- Heatmap -->
+  <div class="heatmap-wrapper">
+    <div class="heatmap-container" id="heatmap-container">
+      <img src="static/map/26UC.jpg" alt="RMUC 2026 场地" class="field-image" id="field-image">
+      <canvas id="heatmap-canvas" class="heatmap-canvas"></canvas>
+    </div>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <span class="legend-bar"></span>
+    低频 → 高频 &nbsp;|&nbsp; X(0~28) Y(0~15)
+  </div>
+
+</div>
+
+<!-- Footer -->
+<footer class="footer">
+  <p>RM LADDER — ROBOMASTER 天梯榜 &copy; 2026</p>
+</footer>
+
+<script>
+// ── Global State ──
+let heatmapData = null;
+let currentRegion = 'all';
+let currentRobot = 'all';
+let currentSchool = 'all';
+let currentSide = 'all'; // 'all' = bilateral, 'red' = unified red side
+let canvas, ctx;
+
+// ── Field mapping constants ──
+// Game coordinates: x(0~28), y(0~15)
+// Image is 2190x1202 pixels
+// Need to find where game area maps to in the image
+const FIELD_MAP = {
+  // Game coordinate bounds
+  gameXMin: 0,
+  gameXMax: 28,
+  gameYMin: 0,
+  gameYMax: 15,
+  // Pixel bounds of the play area in the image (calibrated via test grid)
+  pixelXMin: 80,    // Left edge of play area
+  pixelXMax: 2110,  // Right edge of play area
+  pixelYMin: 55,    // Top edge of play area
+  pixelYMax: 1145,  // Bottom edge of play area
+  imageWidth: 2190,
+  imageHeight: 1202
+};
+
+// ── School data cache ──
+const schoolDataCache = {};
+
+function decodeGrid(base64) {
+  const bin = atob(base64);
+  const grid = [];
+  for (let y = 0; y < 60; y++) {
+    const row = [];
+    for (let x = 0; x < 60; x++) {
+      row.push(bin.charCodeAt(y * 60 + x));
+    }
+    grid.push(row);
+  }
+  return grid;
+}
+
+function decodeRobotData(encoded) {
+  if (typeof encoded === 'string') return decodeGrid(encoded);
+  if (encoded && encoded.red) return { red: decodeGrid(encoded.red), blue: decodeGrid(encoded.blue) };
+  return encoded;
+}
+
+function decodeSchoolData(raw) {
+  const decoded = {};
+  for (const [rtype, data] of Object.entries(raw)) {
+    decoded[rtype] = decodeRobotData(data);
+  }
+  return decoded;
+}
+
+async function loadSchoolData(region, school) {
+  const key = `${region}/${school}`;
+  if (schoolDataCache[key]) return schoolDataCache[key];
+  try {
+    const res = await fetch(`static/heatmap/${encodeURIComponent(region)}/${encodeURIComponent(school)}.json`);
+    if (!res.ok) return null;
+    const raw = await res.json();
+    const data = decodeSchoolData(raw);
+    schoolDataCache[key] = data;
+    return data;
+  } catch { return null; }
+}
+
+async function getSchoolsForRegion(region) {
+  if (!heatmapData || !heatmapData.config.regionSchools) return [];
+  return heatmapData.config.regionSchools[region] || [];
+}
+
+// ── Load Data ──
+async function loadData() {
+  try {
+    const res = await fetch('static/heatmap/config.json');
+    const config = await res.json();
+    heatmapData = { config, data: {} };
+
+    initCanvas();
+    initFilters();
+    renderHeatmap();
+  } catch (error) {
+    console.error('Failed to load data:', error);
+  }
+}
+
+// ── Initialize Canvas ──
+function initCanvas() {
+  canvas = document.getElementById('heatmap-canvas');
+  ctx = canvas.getContext('2d');
+
+  const fieldImage = document.getElementById('field-image');
+
+  function initAfterImageLoad() {
+    resizeCanvas();
+    renderHeatmap();
+  }
+
+  fieldImage.onload = initAfterImageLoad;
+
+  if (fieldImage.complete) {
+    initAfterImageLoad();
+  }
+
+  window.addEventListener('resize', () => {
+    resizeCanvas();
+    renderHeatmap();
+  });
+}
+
+function resizeCanvas() {
+  const container = document.getElementById('heatmap-container');
+  const rect = container.getBoundingClientRect();
+  canvas.width = rect.width;
+  canvas.height = rect.height;
+}
+
+// ── Convert game coordinates to canvas pixels ──
+function gameToPixel(gameX, gameY) {
+  const { gameXMin, gameXMax, gameYMin, gameYMax,
+          pixelXMin, pixelXMax, pixelYMin, pixelYMax,
+          imageWidth, imageHeight } = FIELD_MAP;
+
+  // Normalize game coordinates to 0-1
+  const normX = (gameX - gameXMin) / (gameXMax - gameXMin);
+  const normY = (gameY - gameYMin) / (gameYMax - gameYMin);
+
+  // Map to pixel coordinates
+  // Note: Y is inverted (game y increases upward, image y increases downward)
+  const pixelX = pixelXMin + normX * (pixelXMax - pixelXMin);
+  const pixelY = pixelYMax - normY * (pixelYMax - pixelYMin); // Invert Y
+
+  // Scale to canvas size
+  const scaleX = canvas.width / imageWidth;
+  const scaleY = canvas.height / imageHeight;
+
+  return {
+    x: pixelX * scaleX,
+    y: pixelY * scaleY
+  };
+}
+
+// ── Initialize Filters ──
+function initFilters() {
+  if (!heatmapData) return;
+
+  const { config, data } = heatmapData;
+
+  // Region filters
+  const regionContainer = document.getElementById('region-filters');
+  config.regions.forEach(region => {
+    const btn = document.createElement('button');
+    btn.className = 'pill';
+    btn.dataset.region = region;
+    btn.textContent = region.replace('赛区', '');
+    btn.addEventListener('click', () => setRegion(region));
+    regionContainer.appendChild(btn);
+  });
+
+  // Region "all" button
+  regionContainer.querySelector('[data-region="all"]').addEventListener('click', () => setRegion('all'));
+
+  // Robot filters
+  document.querySelectorAll('#robot-filters .pill').forEach(btn => {
+    btn.addEventListener('click', () => setRobot(btn.dataset.robot));
+  });
+
+  // Side filters
+  document.querySelectorAll('#side-filters .pill').forEach(btn => {
+    btn.addEventListener('click', () => setSide(btn.dataset.side));
+  });
+
+  // School filters
+  updateSchoolFilters();
+}
+
+// ── Update School Filters based on Region ──
+function updateSchoolFilters() {
+  if (!heatmapData) return;
+
+  const { config } = heatmapData;
+  const container = document.getElementById('school-filters');
+
+  // Get schools for current region
+  let schools = [];
+  if (currentRegion === 'all') {
+    Object.values(config.regionSchools || {}).forEach(list => {
+      schools.push(...list);
+    });
+    schools = [...new Set(schools)];
+  } else {
+    schools = (config.regionSchools || {})[currentRegion] || [];
+  }
+  schools.sort();
+
+  // Clear existing buttons (keep "all")
+  container.innerHTML = '';
+  const allBtn = document.createElement('button');
+  allBtn.className = 'pill' + (currentSchool === 'all' ? ' active' : '');
+  allBtn.dataset.school = 'all';
+  allBtn.textContent = '全部学校';
+  allBtn.addEventListener('click', () => setSchool('all'));
+  container.appendChild(allBtn);
+
+  // Add school buttons
+  schools.forEach(school => {
+    const btn = document.createElement('button');
+    btn.className = 'pill' + (currentSchool === school ? ' active' : '');
+    btn.dataset.school = school;
+    btn.textContent = school.length > 10 ? school.substring(0, 10) + '...' : school;
+    btn.title = school;
+    btn.addEventListener('click', () => setSchool(school));
+    container.appendChild(btn);
+  });
+}
+
+// ── Set Region Filter ──
+function setRegion(region) {
+  currentRegion = region;
+  currentSchool = 'all'; // Reset school when region changes
+
+  document.querySelectorAll('#region-filters .pill').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.region === region);
+  });
+
+  updateSchoolFilters();
+  renderHeatmap();
+}
+
+// ── Set Robot Filter ──
+function setRobot(robot) {
+  currentRobot = robot;
+  document.querySelectorAll('#robot-filters .pill').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.robot === robot);
+  });
+  renderHeatmap();
+}
+
+// ── Set Side Filter ──
+function setSide(side) {
+  currentSide = side;
+  document.querySelectorAll('#side-filters .pill').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.side === side);
+  });
+  renderHeatmap();
+}
+
+// ── Set School Filter ──
+function setSchool(school) {
+  currentSchool = school;
+  document.querySelectorAll('#school-filters .pill').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.school === school);
+  });
+  renderHeatmap();
+}
+
+// ── Render Heatmap ──
+async function renderHeatmap() {
+  if (!canvas || !heatmapData) return;
+
+  const { config } = heatmapData;
+  const { gridSize, robotTypes, xRange, yRange } = config;
+
+  // Clear canvas
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Create aggregated grid
+  const grid = Array.from({ length: gridSize }, () => Array(gridSize).fill(0));
+  let hasData = false;
+
+  // Determine which regions to include
+  const regions = currentRegion === 'all' ? config.regions : [currentRegion];
+
+  // Determine which robot types to include
+  const robots = currentRobot === 'all' ? robotTypes : [currentRobot];
+
+  // Central symmetry flip (rotate 180° around field center 14, 7.5)
+  function flipGrid(gridData) {
+    const flipped = Array.from({ length: gridSize }, () => Array(gridSize).fill(0));
+    for (let y = 0; y < gridSize; y++) {
+      for (let x = 0; x < gridSize; x++) {
+        flipped[gridSize - 1 - y][gridSize - 1 - x] = gridData[y][x];
+      }
+    }
+    return flipped;
+  }
+
+  // Load and aggregate data
+  for (const region of regions) {
+    // Get school list from config or cache
+    let schoolList = [];
+    if (currentSchool === 'all') {
+      // Need to discover schools - load a directory listing or use cached data
+      // For now, we'll need to get the school list
+      const regionSchools = await getSchoolsForRegion(region);
+      schoolList = regionSchools;
+    } else {
+      schoolList = [currentSchool];
+    }
+
+    for (const school of schoolList) {
+      const schoolData = await loadSchoolData(region, school);
+      if (!schoolData) continue;
+
+      for (const robot of robots) {
+        const robotData = schoolData[robot];
+        if (!robotData) continue;
+
+        // New format: {red: grid, blue: grid}
+        if (robotData.red && robotData.blue) {
+          if (currentSide === 'red') {
+            // Unified red side: red data direct, blue data flip 180°
+            const flippedBlue = flipGrid(robotData.blue);
+            for (let y = 0; y < gridSize; y++) {
+              for (let x = 0; x < gridSize; x++) {
+                grid[y][x] += robotData.red[y][x] + flippedBlue[y][x];
+              }
+            }
+          } else {
+            // Bilateral: show both sides as-is
+            for (let y = 0; y < gridSize; y++) {
+              for (let x = 0; x < gridSize; x++) {
+                grid[y][x] += robotData.red[y][x] + robotData.blue[y][x];
+              }
+            }
+          }
+        } else {
+          // Legacy format (flat grid)
+          for (let y = 0; y < gridSize; y++) {
+            for (let x = 0; x < gridSize; x++) {
+              grid[y][x] += robotData[y][x];
+            }
+          }
+        }
+        hasData = true;
+      }
+    }
+  }
+
+  if (!hasData) return;
+
+  // Normalize
+  const maxVal = Math.max(...grid.flat());
+  if (maxVal === 0) return;
+
+  // Draw heatmap
+  const [gameXMin, gameXMax] = xRange;
+  const [gameYMin, gameYMax] = yRange;
+  const xStep = (gameXMax - gameXMin) / gridSize;
+  const yStep = (gameYMax - gameYMin) / gridSize;
+
+  // Calculate pixel size of one grid cell
+  const topLeft = gameToPixel(gameXMin, gameYMax);
+  const bottomRight = gameToPixel(gameXMax, gameYMin);
+  const cellPixelWidth = (bottomRight.x - topLeft.x) / gridSize;
+  const cellPixelHeight = (bottomRight.y - topLeft.y) / gridSize;
+
+  for (let gy = 0; gy < gridSize; gy++) {
+    for (let gx = 0; gx < gridSize; gx++) {
+      const value = grid[gy][gx] / maxVal;
+      if (value < 0.01) continue;
+
+      // Convert grid index to game coordinates
+      const gameX = gameXMin + (gx + 0.5) * xStep;
+      const gameY = gameYMin + (gy + 0.5) * yStep;
+
+      // Convert to pixel coordinates
+      const pixel = gameToPixel(gameX, gameY);
+
+      // Color mapping: blue -> green -> yellow -> red
+      let r, g, b;
+      if (value < 0.25) {
+        r = 0;
+        g = Math.round(value * 4 * 255);
+        b = 255;
+      } else if (value < 0.5) {
+        r = 0;
+        g = 255;
+        b = Math.round((0.5 - value) * 4 * 255);
+      } else if (value < 0.75) {
+        r = Math.round((value - 0.5) * 4 * 255);
+        g = 255;
+        b = 0;
+      } else {
+        r = 255;
+        g = Math.round((1 - value) * 4 * 255);
+        b = 0;
+      }
+
+      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${0.3 + value * 0.5})`;
+      ctx.fillRect(
+        pixel.x - cellPixelWidth / 2,
+        pixel.y - cellPixelHeight / 2,
+        cellPixelWidth + 1,
+        cellPixelHeight + 1
+      );
+    }
+  }
+}
+
+// ── Initialize ──
+document.addEventListener('DOMContentLoaded', loadData);
+</script>
+</body>
+</html>
