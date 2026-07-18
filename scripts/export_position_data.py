@@ -194,6 +194,106 @@ def encode_robot_data(robot_data):
     return encode_grid(robot_data)
 
 
+def export_ammo_timeseries(conn):
+    """导出各学校各兵种的平均累计发弹量时序数据"""
+    cur = conn.cursor()
+
+    # 英雄用42mm，步兵/空中/哨兵用17mm
+    ammo_config = {
+        '英雄': '累计42mm发弹',
+        '步兵': '累计17mm发弹',
+        '无人机': '累计17mm发弹',
+        '哨兵': '累计17mm发弹',
+    }
+
+    print("统计各学校各兵种平均累计发弹量...")
+
+    # 获取所有赛区
+    cur.execute('SELECT DISTINCT 赛区 FROM timeseries ORDER BY 赛区')
+    regions = [row[0] for row in cur.fetchall()]
+
+    result = {}
+
+    for region in regions:
+        print(f"  处理 {region}...")
+        result[region] = {}
+
+        for robot_type, ammo_field in ammo_config.items():
+            # 查询该赛区该兵种的时序数据
+            cur.execute(f'''
+            SELECT 学校名, game_id, 时刻秒, [{ammo_field}]
+            FROM timeseries
+            WHERE 赛区 = ? AND 机器人类型 = ? AND [{ammo_field}] IS NOT NULL
+            ORDER BY 学校名, game_id, 时刻秒
+            ''', (region, robot_type))
+
+            # 按学校和游戏组织数据
+            # {school: {game_id: [(time, ammo), ...]}}
+            school_games = defaultdict(lambda: defaultdict(list))
+            for school, game_id, time_sec, ammo in cur.fetchall():
+                school_games[school][game_id].append((time_sec, ammo))
+
+            # 计算每个学校的平均曲线
+            for school, games in school_games.items():
+                if school not in result[region]:
+                    result[region][school] = {}
+
+                # 对每个游戏，取每个时间点的最大累计值（因为是累计值，取最后的值）
+                # 然后对所有游戏取平均
+                # 先确定时间点（取所有游戏的并集，按固定间隔采样）
+                max_time = 0
+                for game_data in games.values():
+                    if game_data:
+                        max_time = max(max_time, max(t for t, _ in game_data))
+
+                if max_time == 0:
+                    continue
+
+                # 按5秒间隔采样
+                sample_interval = 5
+                time_points = list(range(0, int(max_time) + 1, sample_interval))
+
+                # 对每个游戏，插值获取每个时间点的累计值
+                game_curves = []
+                for game_data in games.values():
+                    if not game_data:
+                        continue
+                    # 按时间排序
+                    game_data.sort(key=lambda x: x[0])
+                    curve = []
+                    for t in time_points:
+                        # 找到 <= t 的最大时间点的值
+                        val = 0
+                        for gt, ga in game_data:
+                            if gt <= t:
+                                val = ga
+                            else:
+                                break
+                        curve.append(val)
+                    game_curves.append(curve)
+
+                if not game_curves:
+                    continue
+
+                # 计算平均曲线
+                avg_curve = []
+                for i in range(len(time_points)):
+                    vals = [gc[i] for gc in game_curves if i < len(gc)]
+                    avg_curve.append(round(sum(vals) / len(vals), 1) if vals else 0)
+
+                # 映射兵种名：步兵合并为一个
+                display_name = robot_type
+                if robot_type in ('步兵',):
+                    display_name = '步兵'
+
+                result[region][school][display_name] = {
+                    'interval': sample_interval,
+                    'data': avg_curve
+                }
+
+    return result
+
+
 def main():
     print(f"连接数据库: {DB_PATH}")
     conn = sqlite3.connect(DB_PATH)
@@ -201,6 +301,10 @@ def main():
     # 导出热力图数据
     print("\n=== 导出位置热力图数据 ===")
     heatmap_data = export_position_heatmap(conn)
+
+    # 导出发弹量时序数据
+    print("\n=== 导出发弹量时序数据 ===")
+    ammo_data = export_ammo_timeseries(conn)
 
     # 打散为按学校分文件的结构（base64编码）
     heatmap_dir = os.path.join(OUTPUT_DIR, 'heatmap')
@@ -212,13 +316,17 @@ def main():
         json.dump(heatmap_data['config'], f, ensure_ascii=False)
     print(f"已保存: {config_path}")
 
-    # 按赛区/学校保存（base64编码）
+    # 按赛区/学校保存（base64编码 + 发弹量数据）
     total_files = 0
     for region, schools in heatmap_data['data'].items():
         region_dir = os.path.join(heatmap_dir, region)
         os.makedirs(region_dir, exist_ok=True)
         for school, robots in schools.items():
             encoded = {rtype: encode_robot_data(data) for rtype, data in robots.items()}
+            # 添加发弹量时序数据
+            school_ammo = ammo_data.get(region, {}).get(school, {})
+            if school_ammo:
+                encoded['ammo'] = school_ammo
             school_path = os.path.join(region_dir, f'{school}.json')
             with open(school_path, 'w', encoding='utf-8') as f:
                 json.dump(encoded, f, ensure_ascii=False, separators=(',', ':'))

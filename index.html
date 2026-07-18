@@ -3083,10 +3083,139 @@ function renderTypeDetail() {
   el.innerHTML = html;
   el.style.display = 'block';
 
-  // Render heatmap for 2026
+  // Render heatmap and ammo chart for 2026
   if (currentYear === '2026') {
     renderSchoolHeatmap(el, typeName);
+    if (typeName === '英雄' || typeName === '步兵') {
+      renderAmmoChart(el, typeName);
+    }
   }
+}
+
+// ── Ammo Chart ──
+async function renderAmmoChart(containerEl, typeName) {
+  // Find region
+  let region;
+  if (schoolZone === 'all') {
+    for (const z of DATA.zones) {
+      if (z.teams.some(t => t.collegeName === schoolCollege)) { region = z.zoneName; break; }
+    }
+  } else {
+    const zone = DATA.zones.find(z => z.zoneId === schoolZone);
+    if (zone) region = zone.zoneName;
+  }
+  if (!region) return;
+
+  // Load school data
+  let schoolData;
+  try {
+    const res = await fetch(`static/heatmap/${encodeURIComponent(region)}/${encodeURIComponent(schoolCollege)}.json`);
+    if (!res.ok) return;
+    schoolData = await res.json();
+  } catch { return; }
+
+  const ammo = schoolData.ammo;
+  if (!ammo) return;
+
+  // For infantry, merge 步兵3 and 步兵4 if both exist, or use whichever exists
+  let ammoKey = typeName;
+  let ammoEntry = ammo[ammoKey];
+
+  const ammoLabel = typeName === '英雄' ? '42mm累计发弹' : '17mm累计发弹';
+  if (!ammoEntry) return;
+
+  const { interval, data } = ammoEntry;
+  if (!data || data.length === 0) return;
+
+  // Create chart section
+  const section = document.createElement('div');
+  section.className = 'type-detail-section';
+  section.style.marginTop = 'var(--sp-lg)';
+  section.innerHTML = `
+    <div class="type-detail-header">
+      <span class="type-detail-title">${ammoLabel}曲线</span>
+      <span style="font-size:13px;color:var(--ink-mute)">场均平均累计值</span>
+    </div>
+    <div style="position:relative;width:100%;max-width:800px;margin:var(--sp-md) auto">
+      <canvas id="ammoCanvas" style="width:100%;height:240px"></canvas>
+    </div>
+  `;
+  containerEl.appendChild(section);
+
+  // Draw chart
+  const canvas = document.getElementById('ammoCanvas');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const w = rect.width;
+  const h = rect.height;
+
+  const maxVal = Math.max(...data, 1);
+  const maxTime = (data.length - 1) * interval;
+
+  const pad = { top: 20, right: 20, bottom: 30, left: 50 };
+  const chartW = w - pad.left - pad.right;
+  const chartH = h - pad.top - pad.bottom;
+
+  // Background
+  ctx.fillStyle = 'rgba(0,0,0,0)';
+  ctx.fillRect(0, 0, w, h);
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.top + chartH * (1 - i / 4);
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(pad.left + chartW, y);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.font = '11px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(Math.round(maxVal * i / 4), pad.left - 6, y + 4);
+  }
+
+  // X axis labels
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.textAlign = 'center';
+  const xSteps = Math.min(6, data.length);
+  for (let i = 0; i <= xSteps; i++) {
+    const x = pad.left + chartW * i / xSteps;
+    const t = Math.round(maxTime * i / xSteps);
+    ctx.fillText(`${t}s`, x, h - 8);
+  }
+
+  // Line
+  ctx.strokeStyle = '#3498db';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let i = 0; i < data.length; i++) {
+    const x = pad.left + (i / (data.length - 1)) * chartW;
+    const y = pad.top + chartH * (1 - data[i] / maxVal);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // Fill under curve
+  ctx.lineTo(pad.left + chartW, pad.top + chartH);
+  ctx.lineTo(pad.left, pad.top + chartH);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(52,152,219,0.15)';
+  ctx.fill();
+
+  // End value label
+  const lastVal = data[data.length - 1];
+  const lastX = pad.left + chartW;
+  const lastY = pad.top + chartH * (1 - lastVal / maxVal);
+  ctx.fillStyle = '#3498db';
+  ctx.font = 'bold 12px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText(Math.round(lastVal), lastX + 4, lastY + 4);
 }
 
 // ── School Heatmap ──
