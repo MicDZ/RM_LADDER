@@ -2050,10 +2050,11 @@ function getCollegeRobotInZone(collegeName, zoneId, type) {
 }
 
 // ── School Detail Rendering ──
-function getAllColleges(year) {
+function getAllColleges() {
   const colleges = new Set();
   for (const y of Object.keys(DATA_CACHE)) {
     const yearData = DATA_CACHE[y];
+    if (!yearData) continue;
     const cfg = YEAR_CONFIG[y];
     yearData.zones.forEach(z => {
       if (cfg.excludedZones.includes(z.zoneId)) return;
@@ -2066,11 +2067,17 @@ function getAllColleges(year) {
 }
 
 function selectSchool(college) {
-  navigateToSchool(college, '', currentYear);
+  // Find first year where this school has data
+  const year = YEAR_ORDER.find(y => {
+    const yd = DATA_CACHE[y];
+    if (!yd) return false;
+    return yd.zones.some(z => z.teams.some(t => t.collegeName === college));
+  }) || currentYear;
+  navigateToSchool(college, '', year);
 }
 
 function renderSchoolSearchPage() {
-  const colleges = getAllColleges(currentYear);
+  const colleges = getAllColleges();
 
   // 渲染筛选器
   document.getElementById('schoolSearchFilters').innerHTML = `
@@ -2099,17 +2106,35 @@ function renderSchoolGrid(colleges) {
 
   grid.innerHTML = colleges.map(name => {
     const logo = logos[name] || '';
-    const teams = getCollegeTeams(name);
-    const teamName = teams.length > 0 ? teams[0].team.name : '';
-    const zones = [...new Set(teams.map(t => t.zoneName))].join(' · ');
+    // Find best year for this school
+    const bestYear = YEAR_ORDER.find(y => {
+      const yd = DATA_CACHE[y];
+      if (!yd) return false;
+      return yd.zones.some(z => z.teams.some(t => t.collegeName === name));
+    }) || currentYear;
+    const yearData = DATA_CACHE[bestYear];
+    const cfg = YEAR_CONFIG[bestYear];
+    let teamName = '';
+    let zones = [];
+    if (yearData) {
+      yearData.zones.forEach(z => {
+        if (cfg.excludedZones.includes(z.zoneId)) return;
+        z.teams.forEach(t => {
+          if (t.collegeName === name) {
+            if (!teamName) teamName = t.name;
+            if (!zones.includes(z.zoneName)) zones.push(z.zoneName);
+          }
+        });
+      });
+    }
 
     return `
-      <a class="school-card" href="#school?college=${encodeURIComponent(name)}&year=${currentYear}">
+      <a class="school-card" href="#school?college=${encodeURIComponent(name)}&year=${bestYear}">
         ${logo ? `<img class="school-card-logo" src="${esc(logo)}" alt="">` : ''}
         <div class="school-card-info">
           <div class="school-card-name">${esc(name)}</div>
           ${teamName ? `<div class="school-card-team">${esc(teamName)}</div>` : ''}
-          ${zones ? `<div class="school-card-zone">${esc(zones)}</div>` : ''}
+          ${zones.length > 0 ? `<div class="school-card-zone">${esc(zones.join(' · '))}</div>` : ''}
         </div>
       </a>
     `;
@@ -4355,7 +4380,7 @@ function setQualifierFilter(val) {
   const hash = window.location.hash || '#ladder';
   if (hash.startsWith('#school')) {
     // Re-fetch colleges for search dropdown
-    const colleges = getAllColleges(currentYear);
+    const colleges = getAllColleges();
     window._schoolSearchColleges = colleges;
     renderSchoolDetail();
   } else if (hash === '#compare') {
@@ -4378,7 +4403,7 @@ function toggleQualifierFilter(type) {
   // Re-render
   const hash = window.location.hash || '#ladder';
   if (hash.startsWith('#school')) {
-    window._schoolSearchColleges = getAllColleges(currentYear);
+    window._schoolSearchColleges = getAllColleges();
     renderSchoolDetail();
   } else if (hash === '#compare') {
     renderComparePage();
