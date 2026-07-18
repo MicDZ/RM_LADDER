@@ -2171,6 +2171,13 @@ function renderSchoolDetail() {
     if (!yd) return false;
     return yd.zones.some(z => z.teams.some(t => t.collegeName === schoolCollege));
   });
+
+  // If current year has no data for this school, switch to first available year
+  if (!availableYears.includes(currentYear) && availableYears.length > 0) {
+    currentYear = availableYears[0];
+    DATA = DATA_CACHE[currentYear];
+  }
+
   document.getElementById('schoolZoneFilter').innerHTML = `
     <div class="section-subtitle" style="margin-top:var(--sp-lg)">赛季详情</div>
     <div class="filter-bar" style="padding-top:0">
