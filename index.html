@@ -1525,7 +1525,7 @@ td.num-cell.highlight {
     <a href="#compare">数据对比</a>
     <a href="#qualifiers">晋级名单</a>
     <a href="#school">战队详情</a>
-    <a href="analysis.html">位置热力图</a>
+    <a href="analysis.html">热力图</a>
   </div>
 </nav>
 
@@ -3251,13 +3251,31 @@ async function renderAmmoChart(containerEl, typeName) {
 }
 
 // ── School Heatmap ──
-function decodeGrid(base64) {
-  const bin = atob(base64);
+function decodeGrid(encoded) {
+  // 空字符串或无效值 → 全零网格
+  if (!encoded || typeof encoded !== 'string' || encoded.length === 0) {
+    return Array.from({ length: 60 }, () => Array(60).fill(0));
+  }
+  // 稀疏格式: "idx:val,idx:val,..."
+  if (encoded.includes(':')) {
+    const grid = Array.from({ length: 60 }, () => Array(60).fill(0));
+    const pairs = encoded.split(',');
+    for (const pair of pairs) {
+      if (!pair) continue;
+      const [idx, val] = pair.split(':').map(Number);
+      const y = Math.floor(idx / 60);
+      const x = idx % 60;
+      grid[y][x] = val;
+    }
+    return grid;
+  }
+  // base64格式
+  const bin = atob(encoded);
   const grid = [];
   for (let y = 0; y < 60; y++) {
     const row = [];
     for (let x = 0; x < 60; x++) {
-      row.push(bin.charCodeAt(y * 60 + x));
+      row.push(bin.charCodeAt(y * 60 + x) || 0);
     }
     grid.push(row);
   }
@@ -3345,7 +3363,7 @@ async function renderSchoolHeatmap(containerEl, typeName) {
   heatmapSection.style.marginTop = 'var(--sp-lg)';
   heatmapSection.innerHTML = `
     <div class="type-detail-header">
-      <span class="type-detail-title">${typeName} 位置热力图</span>
+      <span class="type-detail-title">${typeName} 热力图</span>
       <span style="font-size:13px;color:var(--ink-mute)">统一红方视角</span>
     </div>
     <div class="heatmap-wrap" style="position:relative;width:100%;max-width:800px;margin:var(--sp-md) auto">

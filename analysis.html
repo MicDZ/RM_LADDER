@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RM Ladder — 位置热力图</title>
+<title>RM Ladder — 热力图</title>
 <style>
 /* ── Reset ── */
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -264,23 +264,32 @@ body {
   <div class="nav-logo">RM LADDER</div>
   <div class="nav-links">
     <a href="index.html">天梯榜</a>
-    <a href="analysis.html" class="active">位置热力图</a>
+    <a href="analysis.html" class="active">热力图</a>
   </div>
 </nav>
 
 <!-- Hero -->
 <section class="hero">
-  <h1>位置热力图</h1>
-  <p>RMUC 2026 区域赛各兵种位置分布</p>
+  <h1>热力图</h1>
+  <p>RMUC 2026 区域赛位置分布与事件统计</p>
 </section>
 
 <!-- Main Content -->
 <div class="container">
 
-  <div class="section-subtitle">场地位置分布</div>
-  <h2 class="section-title">机器人位置热力图</h2>
+  <div class="section-subtitle">场地数据分析</div>
+  <h2 class="section-title">热力图</h2>
 
   <!-- Filters -->
+  <div class="filter-bar">
+    <span class="filter-label">类型</span>
+    <div class="filter-group" id="type-filters">
+      <button class="pill active" data-type="position">位置热力图</button>
+      <button class="pill" data-type="attack">进攻热力图</button>
+      <button class="pill" data-type="damage">受击热力图</button>
+    </div>
+  </div>
+
   <div class="filter-bar">
     <span class="filter-label">赛区</span>
     <div class="filter-group" id="region-filters">
@@ -297,7 +306,7 @@ body {
     </div>
   </div>
 
-  <div class="filter-bar">
+  <div class="filter-bar" id="robot-filter-bar">
     <span class="filter-label">兵种</span>
     <div class="filter-group" id="robot-filters">
       <button class="pill active" data-robot="all">全部</button>
@@ -347,6 +356,7 @@ body {
 <script>
 // ── Global State ──
 let heatmapData = null;
+let currentHeatmapType = 'position'; // 'position', 'attack', 'damage'
 let currentRegion = 'all';
 let currentRobot = 'all';
 let currentInfantrySub = '合并'; // '合并', '步兵3', '步兵4'
@@ -357,13 +367,22 @@ let canvas, ctx;
 // Map display robot names to data keys
 function getRobotDataKeys(robot) {
   if (robot === 'all') return null; // null means all
-  if (robot === '无人机') return ['空中'];
-  if (robot === '雷达') return ['易伤'];
-  if (robot === '步兵') {
-    if (currentInfantrySub === '合并') return ['步兵3', '步兵4'];
-    return [currentInfantrySub]; // '步兵3' or '步兵4'
+  if (currentHeatmapType === 'position') {
+    // Position heatmap uses different keys
+    if (robot === '无人机') return ['空中'];
+    if (robot === '雷达') return ['易伤'];
+    if (robot === '步兵') {
+      if (currentInfantrySub === '合并') return ['步兵3', '步兵4'];
+      return [currentInfantrySub]; // '步兵3' or '步兵4'
+    }
+    return [robot]; // 英雄, 工程, 哨兵
+  } else {
+    // Attack/damage heatmaps: 步兵 merged, no 雷达/易伤
+    if (robot === '无人机') return ['空中'];
+    if (robot === '雷达') return []; // no radar data for attack/damage
+    if (robot === '步兵') return ['步兵'];
+    return [robot]; // 英雄, 工程, 哨兵
   }
-  return [robot]; // 英雄, 工程, 哨兵
 }
 
 // ── Field mapping constants ──
@@ -388,13 +407,31 @@ const FIELD_MAP = {
 // ── School data cache ──
 const schoolDataCache = {};
 
-function decodeGrid(base64) {
-  const bin = atob(base64);
+function decodeGrid(encoded) {
+  // 空字符串或无效值 → 全零网格
+  if (!encoded || typeof encoded !== 'string' || encoded.length === 0) {
+    return Array.from({ length: 60 }, () => Array(60).fill(0));
+  }
+  // 稀疏格式: "idx:val,idx:val,..."
+  if (encoded.includes(':')) {
+    const grid = Array.from({ length: 60 }, () => Array(60).fill(0));
+    const pairs = encoded.split(',');
+    for (const pair of pairs) {
+      if (!pair) continue;
+      const [idx, val] = pair.split(':').map(Number);
+      const y = Math.floor(idx / 60);
+      const x = idx % 60;
+      grid[y][x] = val;
+    }
+    return grid;
+  }
+  // base64格式
+  const bin = atob(encoded);
   const grid = [];
   for (let y = 0; y < 60; y++) {
     const row = [];
     for (let x = 0; x < 60; x++) {
-      row.push(bin.charCodeAt(y * 60 + x));
+      row.push(bin.charCodeAt(y * 60 + x) || 0);
     }
     grid.push(row);
   }
@@ -415,15 +452,28 @@ function decodeSchoolData(raw) {
   return decoded;
 }
 
-async function loadSchoolData(region, school) {
-  const key = `${region}/${school}`;
-  if (schoolDataCache[key]) return schoolDataCache[key];
+async function loadSchoolData(region, school, robotType) {
+  const isAll = school === '_all';
+  const cacheKey = `${currentHeatmapType}/${region}/${school}/${robotType || 'all'}`;
+  if (schoolDataCache[cacheKey]) return schoolDataCache[cacheKey];
   try {
-    const res = await fetch(`static/heatmap/${encodeURIComponent(region)}/${encodeURIComponent(school)}.json`);
+    let url;
+    if (currentHeatmapType === 'position') {
+      url = isAll
+        ? `static/heatmap/${encodeURIComponent(region)}/_all.json`
+        : `static/heatmap/${encodeURIComponent(region)}/${encodeURIComponent(school)}.json`;
+    } else {
+      const suffix = currentHeatmapType === 'attack' ? '_attack' : '_damage';
+      const typePart = robotType ? `_${encodeURIComponent(robotType)}` : '';
+      url = isAll
+        ? `static/heatmap/${encodeURIComponent(region)}/_all${suffix}${typePart}.json`
+        : `static/heatmap/${encodeURIComponent(region)}/${encodeURIComponent(school)}${suffix}${typePart}.json`;
+    }
+    const res = await fetch(url);
     if (!res.ok) return null;
     const raw = await res.json();
-    const data = decodeSchoolData(raw);
-    schoolDataCache[key] = data;
+    const data = currentHeatmapType === 'position' ? decodeSchoolData(raw) : { red: decodeGrid(raw.red), blue: decodeGrid(raw.blue) };
+    schoolDataCache[cacheKey] = data;
     return data;
   } catch { return null; }
 }
@@ -510,6 +560,11 @@ function initFilters() {
 
   const { config, data } = heatmapData;
 
+  // Type filters
+  document.querySelectorAll('#type-filters .pill').forEach(btn => {
+    btn.addEventListener('click', () => setHeatmapType(btn.dataset.type));
+  });
+
   // Region filters
   const regionContainer = document.getElementById('region-filters');
   config.regions.forEach(region => {
@@ -584,6 +639,17 @@ function updateSchoolFilters() {
 }
 
 // ── Set Region Filter ──
+function setHeatmapType(type) {
+  currentHeatmapType = type;
+
+  document.querySelectorAll('#type-filters .pill').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.type === type);
+  });
+
+  renderHeatmap();
+}
+
+// ── Set Region Filter ──
 function setRegion(region) {
   currentRegion = region;
   currentSchool = 'all'; // Reset school when region changes
@@ -652,7 +718,11 @@ async function renderHeatmap() {
 
   // Determine which robot types to include (map display names to data keys)
   const robotKeys = getRobotDataKeys(currentRobot);
-  const robots = robotKeys || robotTypes;
+  let robots = robotKeys || robotTypes;
+  // Attack/damage heatmaps only have 英雄/工程/步兵/空中/哨兵
+  if (currentHeatmapType !== 'position' && !robotKeys) {
+    robots = ['英雄', '工程', '步兵', '空中', '哨兵'];
+  }
 
   // Central symmetry flip (rotate 180° around field center 14, 7.5)
   function flipGrid(gridData) {
@@ -665,54 +735,84 @@ async function renderHeatmap() {
     return flipped;
   }
 
-  // Load and aggregate data
-  for (const region of regions) {
-    // Get school list from config or cache
-    let schoolList = [];
-    if (currentSchool === 'all') {
-      // Need to discover schools - load a directory listing or use cached data
-      // For now, we'll need to get the school list
-      const regionSchools = await getSchoolsForRegion(region);
-      schoolList = regionSchools;
+  // Helper: aggregate a {red, blue} grid pair into the main grid
+  function aggregateSideGrid(robotData) {
+    if (!robotData || !robotData.red || !robotData.blue) return;
+    if (currentSide === 'red') {
+      const flippedBlue = flipGrid(robotData.blue);
+      for (let y = 0; y < gridSize; y++) {
+        for (let x = 0; x < gridSize; x++) {
+          grid[y][x] += robotData.red[y][x] + flippedBlue[y][x];
+        }
+      }
     } else {
-      schoolList = [currentSchool];
+      for (let y = 0; y < gridSize; y++) {
+        for (let x = 0; x < gridSize; x++) {
+          grid[y][x] += robotData.red[y][x] + robotData.blue[y][x];
+        }
+      }
     }
+    hasData = true;
+  }
 
-    for (const school of schoolList) {
-      const schoolData = await loadSchoolData(region, school);
-      if (!schoolData) continue;
+  // Load and aggregate data
+  const useAggregated = currentSchool === 'all';
+  const regionList = useAggregated ? regions : regions; // same, but school list differs
 
-      for (const robot of robots) {
-        const robotData = schoolData[robot];
-        if (!robotData) continue;
-
-        // New format: {red: grid, blue: grid}
-        if (robotData.red && robotData.blue) {
-          if (currentSide === 'red') {
-            // Unified red side: red data direct, blue data flip 180°
-            const flippedBlue = flipGrid(robotData.blue);
-            for (let y = 0; y < gridSize; y++) {
-              for (let x = 0; x < gridSize; x++) {
-                grid[y][x] += robotData.red[y][x] + flippedBlue[y][x];
-              }
-            }
-          } else {
-            // Bilateral: show both sides as-is
-            for (let y = 0; y < gridSize; y++) {
-              for (let x = 0; x < gridSize; x++) {
-                grid[y][x] += robotData.red[y][x] + robotData.blue[y][x];
-              }
-            }
-          }
-        } else {
-          // Legacy format (flat grid)
-          for (let y = 0; y < gridSize; y++) {
-            for (let x = 0; x < gridSize; x++) {
-              grid[y][x] += robotData[y][x];
+  for (const region of regionList) {
+    if (useAggregated) {
+      // 使用预聚合文件，单次加载
+      if (currentHeatmapType === 'position') {
+        const schoolData = await loadSchoolData(region, '_all');
+        if (schoolData) {
+          for (const robot of robots) {
+            const robotData = schoolData[robot];
+            if (!robotData) continue;
+            if (robotData.red && robotData.blue) {
+              aggregateSideGrid(robotData);
+            } else {
+              for (let y = 0; y < gridSize; y++)
+                for (let x = 0; x < gridSize; x++)
+                  grid[y][x] += robotData[y][x];
+              hasData = true;
             }
           }
         }
-        hasData = true;
+      } else {
+        // Attack/damage: 并发加载各兵种的聚合文件
+        const robotDataArr = await Promise.all(
+          robots.map(async robot => ({ robot, data: await loadSchoolData(region, '_all', robot) }))
+        );
+        for (const { data } of robotDataArr) {
+          if (data) aggregateSideGrid(data);
+        }
+      }
+    } else {
+      // 单个学校
+      const schoolList = [currentSchool];
+      for (const school of schoolList) {
+        if (currentHeatmapType === 'position') {
+          const schoolData = await loadSchoolData(region, school);
+          if (!schoolData) continue;
+          for (const robot of robots) {
+            const robotData = schoolData[robot];
+            if (!robotData) continue;
+            if (robotData.red && robotData.blue) {
+              aggregateSideGrid(robotData);
+            } else {
+              for (let y = 0; y < gridSize; y++)
+                for (let x = 0; x < gridSize; x++)
+                  grid[y][x] += robotData[y][x];
+              hasData = true;
+            }
+          }
+        } else {
+          for (const robot of robots) {
+            const schoolData = await loadSchoolData(region, school, robot);
+            if (!schoolData) continue;
+            aggregateSideGrid(schoolData);
+          }
+        }
       }
     }
   }

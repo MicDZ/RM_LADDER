@@ -179,9 +179,19 @@ def export_position_heatmap(conn):
 
 
 def encode_grid(grid):
-    """将60x60网格编码为base64字符串，每个值用1字节(0-100)"""
-    flat = bytes([v for row in grid for v in row])
-    return base64.b64encode(flat).decode('ascii')
+    """将60x60网格编码为稀疏格式字符串，只存储非零值
+    格式: "idx:val,idx:val,..." (idx为扁平化索引, val为0-100的值)
+    如果非零值超过30%，则回退到base64格式
+    """
+    flat = [v for row in grid for v in row]
+    non_zero = [(i, v) for i, v in enumerate(flat) if v > 0]
+
+    # 如果稀疏度不够，使用base64
+    if len(non_zero) > len(flat) * 0.3:
+        return base64.b64encode(bytes(flat)).decode('ascii')
+
+    # 稀疏格式: "idx:val,idx:val,..."，全零时返回空字符串
+    return ','.join(f'{i}:{v}' for i, v in non_zero) if non_zero else ''
 
 
 def encode_robot_data(robot_data):
@@ -310,6 +320,96 @@ def export_ammo_timeseries(conn):
     return result
 
 
+def export_event_heatmap(conn):
+    """导出各学校各兵种发弹（进攻）和受击热力图数据，按赛区/学校/兵种/阵营分别统计"""
+    cur = conn.cursor()
+
+    x_range = GAME_X_MAX - GAME_X_MIN
+    y_range = GAME_Y_MAX - GAME_Y_MIN
+
+    # 需要统计的兵种（跳过基地、前哨站）
+    event_robot_types = ['英雄', '工程', '步兵3', '步兵4', '空中', '哨兵']
+    # 步兵3/步兵4 合并为步兵
+    merge_map = {'步兵3': '步兵', '步兵4': '步兵'}
+
+    # 查询发弹事件位置（发弹方 = 进攻方）
+    print("统计发弹（进攻）事件位置（按兵种）...")
+    cur.execute('''
+    SELECT DISTINCT e.学校名, e.阵营, e.机器人类型, t.x, t.y
+    FROM events e
+    JOIN timeseries t ON e.game_id = t.game_id AND e.robot_id = t.robot_id AND e.时刻秒 = t.时刻秒
+    WHERE e.事件类型 = '发弹'
+    AND e.机器人类型 IN ({})
+    AND t.x IS NOT NULL AND t.y IS NOT NULL
+    AND t.x >= ? AND t.x <= ? AND t.y >= ? AND t.y <= ?
+    '''.format(','.join('?' * len(event_robot_types))),
+    (*event_robot_types, GAME_X_MIN, GAME_X_MAX, GAME_Y_MIN, GAME_Y_MAX))
+
+    # {school: {robot_type: {'red': grid, 'blue': grid}}}
+    attack_grids = defaultdict(lambda: defaultdict(
+        lambda: {'red': [[0] * GRID_SIZE for _ in range(GRID_SIZE)],
+                 'blue': [[0] * GRID_SIZE for _ in range(GRID_SIZE)]}))
+    for school, faction, robot_type, x, y in cur.fetchall():
+        display_type = merge_map.get(robot_type, robot_type)
+        faction_key = 'red' if faction == '红' else 'blue'
+        grid_x, grid_y = coord_to_grid(x, y, x_range, y_range)
+        attack_grids[school][display_type][faction_key][grid_y][grid_x] += 1
+
+    # 查询受击事件位置（受击方 = 被攻击方）
+    print("统计受击事件位置（按兵种）...")
+    cur.execute('''
+    SELECT DISTINCT e.学校名, e.阵营, e.机器人类型, t.x, t.y
+    FROM events e
+    JOIN timeseries t ON e.game_id = t.game_id AND e.robot_id = t.robot_id AND e.时刻秒 = t.时刻秒
+    WHERE e.事件类型 = '受击'
+    AND e.机器人类型 IN ({})
+    AND t.x IS NOT NULL AND t.y IS NOT NULL
+    AND t.x >= ? AND t.x <= ? AND t.y >= ? AND t.y <= ?
+    '''.format(','.join('?' * len(event_robot_types))),
+    (*event_robot_types, GAME_X_MIN, GAME_X_MAX, GAME_Y_MIN, GAME_Y_MAX))
+
+    damage_grids = defaultdict(lambda: defaultdict(
+        lambda: {'red': [[0] * GRID_SIZE for _ in range(GRID_SIZE)],
+                 'blue': [[0] * GRID_SIZE for _ in range(GRID_SIZE)]}))
+    for school, faction, robot_type, x, y in cur.fetchall():
+        display_type = merge_map.get(robot_type, robot_type)
+        faction_key = 'red' if faction == '红' else 'blue'
+        grid_x, grid_y = coord_to_grid(x, y, x_range, y_range)
+        damage_grids[school][display_type][faction_key][grid_y][grid_x] += 1
+
+    # 获取所有赛区（从 timeseries 表）
+    cur.execute('SELECT DISTINCT 学校名, 赛区 FROM timeseries')
+    school_region_map = {school: region for school, region in cur.fetchall()}
+
+    # 归一化并按赛区组织
+    # result: {region: {school: {'attack': {type: {red, blue}}, 'damage': {type: {red, blue}}}}}
+    result = {}
+    for grids, label in [(attack_grids, 'attack'), (damage_grids, 'damage')]:
+        for school, type_grids in grids.items():
+            region = school_region_map.get(school)
+            if not region:
+                continue
+            if region not in result:
+                result[region] = {}
+            if school not in result[region]:
+                result[region][school] = {}
+            result[region][school][label] = {}
+
+            for robot_type, sides in type_grids.items():
+                encoded = {}
+                for faction_key in ('red', 'blue'):
+                    grid = sides[faction_key]
+                    max_val = max(max(row) for row in grid)
+                    if max_val > 0:
+                        normalized = [[round(v / max_val * 100) for v in row] for row in grid]
+                    else:
+                        normalized = grid
+                    encoded[faction_key] = normalized
+                result[region][school][label][robot_type] = encoded
+
+    return result
+
+
 def main():
     print(f"连接数据库: {DB_PATH}")
     conn = sqlite3.connect(DB_PATH)
@@ -322,14 +422,20 @@ def main():
     print("\n=== 导出发弹量时序数据 ===")
     ammo_data = export_ammo_timeseries(conn)
 
+    # 导出发弹/受击热力图数据
+    print("\n=== 导出发弹/受击热力图数据 ===")
+    event_heatmap_data = export_event_heatmap(conn)
+
     # 打散为按学校分文件的结构（base64编码）
     heatmap_dir = os.path.join(OUTPUT_DIR, 'heatmap')
     os.makedirs(heatmap_dir, exist_ok=True)
 
-    # 保存 config.json
+    # 保存 config.json（添加 heatmapTypes 字段）
+    config = heatmap_data['config']
+    config['heatmapTypes'] = ['position', 'attack', 'damage']
     config_path = os.path.join(heatmap_dir, 'config.json')
     with open(config_path, 'w', encoding='utf-8') as f:
-        json.dump(heatmap_data['config'], f, ensure_ascii=False)
+        json.dump(config, f, ensure_ascii=False)
     print(f"已保存: {config_path}")
 
     # 按赛区/学校保存（base64编码 + 发弹量数据）
@@ -347,7 +453,91 @@ def main():
             with open(school_path, 'w', encoding='utf-8') as f:
                 json.dump(encoded, f, ensure_ascii=False, separators=(',', ':'))
             total_files += 1
-    print(f"已保存 {total_files} 个学校文件到 {heatmap_dir}/")
+    print(f"已保存 {total_files} 个学校位置热力图文件")
+
+    # 保存发弹/受击热力图数据（按兵种分文件）
+    event_files = 0
+    for region, schools in event_heatmap_data.items():
+        region_dir = os.path.join(heatmap_dir, region)
+        os.makedirs(region_dir, exist_ok=True)
+        for school, types in schools.items():
+            for heatmap_type, robot_types_data in types.items():
+                suffix = '_attack' if heatmap_type == 'attack' else '_damage'
+                for robot_type, sides in robot_types_data.items():
+                    encoded = encode_robot_data(sides)
+                    file_path = os.path.join(region_dir, f'{school}{suffix}_{robot_type}.json')
+                    with open(file_path, 'w', encoding='utf-8') as f:
+                        json.dump(encoded, f, ensure_ascii=False, separators=(',', ':'))
+                    event_files += 1
+    print(f"已保存 {event_files} 个进攻/受击热力图文件")
+
+    # ── 生成全部学校聚合数据 ──
+    print("\n=== 生成全部学校聚合数据 ===")
+    agg_files = 0
+
+    def sum_grids(grids_list):
+        """求和多个 60x60 网格"""
+        result = [[0] * GRID_SIZE for _ in range(GRID_SIZE)]
+        for grid in grids_list:
+            for y in range(GRID_SIZE):
+                for x in range(GRID_SIZE):
+                    result[y][x] += grid[y][x]
+        return result
+
+    def normalize_grid(grid):
+        """归一化到 0-100"""
+        max_val = max(max(row) for row in grid)
+        if max_val > 0:
+            return [[round(v / max_val * 100) for v in row] for row in grid]
+        return grid
+
+    for region in heatmap_data['data']:
+        region_dir = os.path.join(heatmap_dir, region)
+        schools = heatmap_data['data'][region]
+
+        # 位置热力图：按兵种聚合所有学校
+        # robot_type -> {'red': [grids], 'blue': [grids]}
+        pos_aggregated = {}
+        for school, robots in schools.items():
+            for rtype, sides in robots.items():
+                if rtype not in pos_aggregated:
+                    pos_aggregated[rtype] = {'red': [], 'blue': []}
+                if isinstance(sides, dict) and 'red' in sides:
+                    pos_aggregated[rtype]['red'].append(sides['red'])
+                    pos_aggregated[rtype]['blue'].append(sides['blue'])
+
+        all_encoded = {}
+        for rtype, sides in pos_aggregated.items():
+            red = normalize_grid(sum_grids(sides['red']))
+            blue = normalize_grid(sum_grids(sides['blue']))
+            all_encoded[rtype] = {'red': encode_grid(red), 'blue': encode_grid(blue)}
+
+        if all_encoded:
+            with open(os.path.join(region_dir, '_all.json'), 'w', encoding='utf-8') as f:
+                json.dump(all_encoded, f, ensure_ascii=False, separators=(',', ':'))
+            agg_files += 1
+
+        # 进攻/受击热力图：按兵种聚合所有学校
+        for heatmap_type in ('attack', 'damage'):
+            suffix = f'_{heatmap_type}'
+            type_aggregated = {}  # robot_type -> {'red': [grids], 'blue': [grids]}
+            for school_data in event_heatmap_data.get(region, {}).values():
+                robot_types_data = school_data.get(heatmap_type, {})
+                for rtype, sides in robot_types_data.items():
+                    if rtype not in type_aggregated:
+                        type_aggregated[rtype] = {'red': [], 'blue': []}
+                    type_aggregated[rtype]['red'].append(sides['red'])
+                    type_aggregated[rtype]['blue'].append(sides['blue'])
+
+            for rtype, sides in type_aggregated.items():
+                red = normalize_grid(sum_grids(sides['red']))
+                blue = normalize_grid(sum_grids(sides['blue']))
+                encoded = {'red': encode_grid(red), 'blue': encode_grid(blue)}
+                with open(os.path.join(region_dir, f'_all{suffix}_{rtype}.json'), 'w', encoding='utf-8') as f:
+                    json.dump(encoded, f, ensure_ascii=False, separators=(',', ':'))
+                agg_files += 1
+
+    print(f"已保存 {agg_files} 个聚合文件")
 
     conn.close()
     print("\n导出完成!")
