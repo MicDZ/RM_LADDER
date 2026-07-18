@@ -198,10 +198,11 @@ def export_ammo_timeseries(conn):
     """导出各学校各兵种的平均累计发弹量时序数据"""
     cur = conn.cursor()
 
-    # 英雄用42mm，步兵/空中/哨兵用17mm
+    # 英雄用42mm，步兵3/步兵4/空中/哨兵用17mm
     ammo_config = {
         '英雄': '累计42mm发弹',
-        '步兵': '累计17mm发弹',
+        '步兵3': '累计17mm发弹',
+        '步兵4': '累计17mm发弹',
         '无人机': '累计17mm发弹',
         '哨兵': '累计17mm发弹',
     }
@@ -281,15 +282,30 @@ def export_ammo_timeseries(conn):
                     vals = [gc[i] for gc in game_curves if i < len(gc)]
                     avg_curve.append(round(sum(vals) / len(vals), 1) if vals else 0)
 
-                # 映射兵种名：步兵合并为一个
+                # 映射兵种名：步兵3/步兵4合并为步兵
                 display_name = robot_type
-                if robot_type in ('步兵',):
+                if robot_type in ('步兵3', '步兵4'):
                     display_name = '步兵'
 
-                result[region][school][display_name] = {
-                    'interval': sample_interval,
-                    'data': avg_curve
-                }
+                # 如果已有该兵种数据（如步兵3和步兵4），取平均
+                if display_name in result[region][school]:
+                    existing = result[region][school][display_name]
+                    # 对齐长度
+                    max_len = max(len(existing['data']), len(avg_curve))
+                    merged = []
+                    for i in range(max_len):
+                        v1 = existing['data'][i] if i < len(existing['data']) else 0
+                        v2 = avg_curve[i] if i < len(avg_curve) else 0
+                        merged.append(round((v1 + v2) / 2, 1))
+                    result[region][school][display_name] = {
+                        'interval': sample_interval,
+                        'data': merged
+                    }
+                else:
+                    result[region][school][display_name] = {
+                        'interval': sample_interval,
+                        'data': avg_curve
+                    }
 
     return result
 
