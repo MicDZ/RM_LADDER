@@ -294,11 +294,15 @@ body {
       <button class="pill active" data-robot="all">全部</button>
       <button class="pill" data-robot="英雄">英雄</button>
       <button class="pill" data-robot="工程">工程</button>
-      <button class="pill" data-robot="步兵3">步兵3</button>
-      <button class="pill" data-robot="步兵4">步兵4</button>
-      <button class="pill" data-robot="空中">空中</button>
+      <button class="pill" data-robot="步兵" id="btn-infantry">步兵</button>
+      <button class="pill" data-robot="无人机">无人机</button>
       <button class="pill" data-robot="哨兵">哨兵</button>
-      <button class="pill" data-robot="易伤">易伤</button>
+      <button class="pill" data-robot="雷达">雷达</button>
+    </div>
+    <div class="filter-group" id="infantry-sub" style="display:none;margin-left:8px">
+      <button class="pill active" data-sub="合并">合并</button>
+      <button class="pill" data-sub="步兵3">3号</button>
+      <button class="pill" data-sub="步兵4">4号</button>
     </div>
   </div>
 
@@ -345,9 +349,22 @@ body {
 let heatmapData = null;
 let currentRegion = 'all';
 let currentRobot = 'all';
+let currentInfantrySub = '合并'; // '合并', '步兵3', '步兵4'
 let currentSchool = 'all';
 let currentSide = 'all'; // 'all' = bilateral, 'red' = unified red side
 let canvas, ctx;
+
+// Map display robot names to data keys
+function getRobotDataKeys(robot) {
+  if (robot === 'all') return null; // null means all
+  if (robot === '无人机') return ['空中'];
+  if (robot === '雷达') return ['易伤'];
+  if (robot === '步兵') {
+    if (currentInfantrySub === '合并') return ['步兵3', '步兵4'];
+    return [currentInfantrySub]; // '步兵3' or '步兵4'
+  }
+  return [robot]; // 英雄, 工程, 哨兵
+}
 
 // ── Field mapping constants ──
 // Game coordinates: x(0~28), y(0~15)
@@ -512,6 +529,11 @@ function initFilters() {
     btn.addEventListener('click', () => setRobot(btn.dataset.robot));
   });
 
+  // Infantry sub filters
+  document.querySelectorAll('#infantry-sub .pill').forEach(btn => {
+    btn.addEventListener('click', () => setInfantrySub(btn.dataset.sub));
+  });
+
   // Side filters
   document.querySelectorAll('#side-filters .pill').forEach(btn => {
     btn.addEventListener('click', () => setSide(btn.dataset.side));
@@ -580,6 +602,16 @@ function setRobot(robot) {
   document.querySelectorAll('#robot-filters .pill').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.robot === robot);
   });
+  // Show/hide infantry sub-menu
+  document.getElementById('infantry-sub').style.display = robot === '步兵' ? '' : 'none';
+  renderHeatmap();
+}
+
+function setInfantrySub(sub) {
+  currentInfantrySub = sub;
+  document.querySelectorAll('#infantry-sub .pill').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.sub === sub);
+  });
   renderHeatmap();
 }
 
@@ -618,8 +650,9 @@ async function renderHeatmap() {
   // Determine which regions to include
   const regions = currentRegion === 'all' ? config.regions : [currentRegion];
 
-  // Determine which robot types to include
-  const robots = currentRobot === 'all' ? robotTypes : [currentRobot];
+  // Determine which robot types to include (map display names to data keys)
+  const robotKeys = getRobotDataKeys(currentRobot);
+  const robots = robotKeys || robotTypes;
 
   // Central symmetry flip (rotate 180° around field center 14, 7.5)
   function flipGrid(gridData) {
