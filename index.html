@@ -1739,6 +1739,10 @@ const YEAR_ORDER = ['2026', '2025', '2024'];
 let currentYear = '2026';
 let DATA = null;
 let forumReports = null;
+let assemblyStats2026 = null;
+let dartStats2026 = null;
+let radarStats2026 = null;
+let terrainStats2026 = null;
 let scoreHistory = null;
 let assessmentHistory = null;
 let goldcoinHistory = null;
@@ -1790,6 +1794,50 @@ async function loadForumReports() {
     forumReports = {};
   }
   return forumReports;
+}
+
+async function loadAssemblyStats() {
+  if (assemblyStats2026) return assemblyStats2026;
+  try {
+    const resp = await fetch('static/assembly_stats_2026.json');
+    assemblyStats2026 = await resp.json();
+  } catch (e) {
+    assemblyStats2026 = {};
+  }
+  return assemblyStats2026;
+}
+
+async function loadDartStats() {
+  if (dartStats2026) return dartStats2026;
+  try {
+    const resp = await fetch('static/dart_stats_2026.json');
+    dartStats2026 = await resp.json();
+  } catch (e) {
+    dartStats2026 = {};
+  }
+  return dartStats2026;
+}
+
+async function loadRadarStats() {
+  if (radarStats2026) return radarStats2026;
+  try {
+    const resp = await fetch('static/radar_stats_2026.json');
+    radarStats2026 = await resp.json();
+  } catch (e) {
+    radarStats2026 = {};
+  }
+  return radarStats2026;
+}
+
+async function loadTerrainStats() {
+  if (terrainStats2026) return terrainStats2026;
+  try {
+    const resp = await fetch('static/terrain_stats_2026.json');
+    terrainStats2026 = await resp.json();
+  } catch (e) {
+    terrainStats2026 = {};
+  }
+  return terrainStats2026;
 }
 
 async function loadCollegeLogos() {
@@ -3009,6 +3057,10 @@ function renderTypeDetail() {
         </div>
       </div>
     `;
+    mobileHtml += getAssemblyStatsHtml(cols, schoolCollege);
+    mobileHtml += getDartStatsHtml(cols, schoolCollege);
+    mobileHtml += getRadarStatsHtml(cols, schoolCollege);
+    mobileHtml += getTerrainStatsHtml(cols, schoolCollege);
     // Forum reports
     if (forumReports && forumReports[schoolCollege]) {
       const typeReports = forumReports[schoolCollege][typeName];
@@ -3037,6 +3089,9 @@ function renderTypeDetail() {
     // Render heatmap for 2026 (mobile)
     if (currentYear === '2026') {
       renderSchoolHeatmap(el, typeName);
+      if (typeName === '雷达') {
+        renderRadarCounterChart();
+      }
     }
     return;
   }
@@ -3089,6 +3144,11 @@ function renderTypeDetail() {
     </div>
   `;
 
+  html += getAssemblyStatsHtml(cols, schoolCollege);
+  html += getDartStatsHtml(cols, schoolCollege);
+  html += getRadarStatsHtml(cols, schoolCollege);
+  html += getTerrainStatsHtml(cols, schoolCollege);
+
   // Open-source reports section
   if (forumReports && forumReports[schoolCollege]) {
     const typeReports = forumReports[schoolCollege][typeName];
@@ -3121,7 +3181,446 @@ function renderTypeDetail() {
     if (typeName === '英雄' || typeName === '步兵') {
       renderAmmoChart(el, typeName);
     }
+    if (typeName === '雷达') {
+      renderRadarCounterChart();
+    }
   }
+}
+
+function getAssemblyStatsHtml(cols, schoolCollege) {
+  if (!assemblyStats2026 || schoolType !== 'Sapper' || currentYear !== '2026') return '';
+  const allData = cols.map(c => {
+    const zoneData = assemblyStats2026[c.zoneName];
+    return zoneData ? zoneData[schoolCollege] || null : null;
+  }).filter(Boolean);
+  if (allData.length === 0) return '';
+
+  // Aggregate across zones
+  const agg = { total: 0, l1: 0, l2: 0, l3: 0, t1: 0, t2: 0, t3: 0, penalties: 0, min1: null, min2: null, min3: null, minAll: null };
+  for (const d of allData) {
+    agg.total += d.total;
+    agg.l1 += d.level1; agg.t1 += d.avg1 * d.level1;
+    agg.l2 += d.level2; agg.t2 += d.avg2 * d.level2;
+    agg.l3 += d.level3; agg.t3 += d.avg3 * d.level3;
+    agg.penalties += d.penalties;
+    if (d.min1 != null) agg.min1 = agg.min1 == null ? d.min1 : Math.min(agg.min1, d.min1);
+    if (d.min2 != null) agg.min2 = agg.min2 == null ? d.min2 : Math.min(agg.min2, d.min2);
+    if (d.min3 != null) agg.min3 = agg.min3 == null ? d.min3 : Math.min(agg.min3, d.min3);
+    if (d.minAll != null) agg.minAll = agg.minAll == null ? d.minAll : Math.min(agg.minAll, d.minAll);
+  }
+  const avg = (total, cnt) => cnt > 0 ? (total / cnt).toFixed(1) : '-';
+  const fmtMin = (v) => v != null ? v.toFixed(1) + 's' : '-';
+  const totalTime = agg.t1 + agg.t2 + agg.t3;
+  const asmRows = [
+    { label: '装配总次数', count: agg.total, time: avg(totalTime, agg.total), fastest: fmtMin(agg.minAll) },
+    { label: '等级1', count: agg.l1, time: avg(agg.t1, agg.l1), fastest: fmtMin(agg.min1) },
+    { label: '等级2', count: agg.l2, time: avg(agg.t2, agg.l2), fastest: fmtMin(agg.min2) },
+    { label: '等级3', count: agg.l3, time: avg(agg.t3, agg.l3), fastest: fmtMin(agg.min3) },
+  ];
+
+  const isMob = isMobile();
+  if (isMob) {
+    return `
+      <div class="type-detail-section" style="margin-top:var(--sp-lg)">
+        <div class="type-detail-header">
+          <span class="type-detail-title">装配统计</span>
+        </div>
+        <div class="type-detail-grid-mobile">
+          ${asmRows.map(r => `
+            <div class="type-detail-row-mobile">
+              <div class="type-detail-row-header">
+                <span class="type-detail-row-label">${r.label}</span>
+                <span style="font-weight:700;font-variant-numeric:tabular-nums">${r.count}${r.time !== '-' ? ' · ' + r.time + 's' : ''}</span>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      ${agg.penalties > 0 ? `
+      <div class="type-detail-section" style="margin-top:var(--sp-md)">
+        <div class="type-detail-header">
+          <span class="type-detail-title">受罚次数</span>
+          <span style="font-weight:700;font-variant-numeric:tabular-nums">${agg.penalties}</span>
+        </div>
+      </div>` : ''}`;
+  }
+
+  return `
+    <div class="type-detail-section" style="margin-top:var(--sp-lg)">
+      <div class="type-detail-header">
+        <span class="type-detail-title">装配统计</span>
+      </div>
+      <div class="type-detail-grid" style="grid-template-columns:160px repeat(3, 1fr)">
+        <div class="type-detail-cell col-header corner-cell">指标</div>
+        <div class="type-detail-cell col-header">装配次数</div>
+        <div class="type-detail-cell col-header">平均用时</div>
+        <div class="type-detail-cell col-header">最快用时</div>
+        ${asmRows.map(r => `
+          <div class="type-detail-cell label">${r.label}</div>
+          <div class="type-detail-cell value">${r.count}</div>
+          <div class="type-detail-cell value${r.time !== '-' ? '' : ' muted'}">${r.time !== '-' ? r.time + 's' : '-'}</div>
+          <div class="type-detail-cell value${r.fastest !== '-' ? '' : ' muted'}">${r.fastest}</div>
+        `).join('')}
+      </div>
+    </div>
+    ${agg.penalties > 0 ? `
+    <div class="type-detail-section" style="margin-top:var(--sp-md)">
+      <div class="type-detail-header">
+        <span class="type-detail-title">受罚次数</span>
+        <span style="font-weight:700;font-variant-numeric:tabular-nums">${agg.penalties}</span>
+      </div>
+    </div>` : ''}`;
+}
+
+function getDartStatsHtml(cols, schoolCollege) {
+  if (!dartStats2026 || schoolType !== 'Dart' || currentYear !== '2026') return '';
+  const allData = cols.map(c => {
+    const zoneData = dartStats2026[c.zoneName];
+    return zoneData ? zoneData[schoolCollege] || null : null;
+  }).filter(Boolean);
+  if (allData.length === 0) return '';
+
+  // Aggregate across zones
+  const agg = {
+    gateOpen: 0, totalHits: 0, totalDamage: 0,
+    baseHits: 0, outpostHits: 0, baseDamage: 0, outpostDamage: 0,
+    base200: 0, base300: 0, base625: 0,
+    outpost330: 0, outpost530: 0, outpost670: 0, outpost750: 0,
+  };
+  for (const d of allData) {
+    for (const k of Object.keys(agg)) agg[k] += d[k] || 0;
+  }
+
+  const hitRate = agg.gateOpen > 0 ? (agg.totalHits / agg.gateOpen * 100).toFixed(1) + '%' : '-';
+  const baseDetail = [
+    agg.base200 > 0 ? `200×${agg.base200}` : '',
+    agg.base300 > 0 ? `300×${agg.base300}` : '',
+    agg.base625 > 0 ? `625×${agg.base625}` : '',
+  ].filter(Boolean).join(' ') || '-';
+  const outpostDetail = [
+    agg.outpost330 > 0 ? `330×${agg.outpost330}` : '',
+    agg.outpost530 > 0 ? `530×${agg.outpost530}` : '',
+    agg.outpost670 > 0 ? `670×${agg.outpost670}` : '',
+    agg.outpost750 > 0 ? `750×${agg.outpost750}` : '',
+  ].filter(Boolean).join(' ') || '-';
+
+  const isMob = isMobile();
+  if (isMob) {
+    return `
+      <div class="type-detail-section" style="margin-top:var(--sp-lg)">
+        <div class="type-detail-header">
+          <span class="type-detail-title">飞镖统计</span>
+        </div>
+        <div class="type-detail-grid-mobile">
+          <div class="type-detail-row-mobile">
+            <div class="type-detail-row-header">
+              <span class="type-detail-row-label">闸门开启</span>
+              <span style="font-weight:700;font-variant-numeric:tabular-nums">${agg.gateOpen}</span>
+            </div>
+          </div>
+          <div class="type-detail-row-mobile">
+            <div class="type-detail-row-header">
+              <span class="type-detail-row-label">命中总数</span>
+              <span style="font-weight:700;font-variant-numeric:tabular-nums">${agg.totalHits} · ${hitRate}</span>
+            </div>
+          </div>
+          <div class="type-detail-row-mobile">
+            <div class="type-detail-row-header">
+              <span class="type-detail-row-label">总伤害</span>
+              <span style="font-weight:700;font-variant-numeric:tabular-nums">${agg.totalDamage}</span>
+            </div>
+          </div>
+          <div class="type-detail-row-mobile">
+            <div class="type-detail-row-header">
+              <span class="type-detail-row-label">命中基地</span>
+              <span style="font-weight:700;font-variant-numeric:tabular-nums">${agg.baseHits} · ${agg.baseDamage}</span>
+            </div>
+          </div>
+          <div class="type-detail-row-mobile">
+            <div class="type-detail-row-header">
+              <span class="type-detail-row-label">命中前哨站</span>
+              <span style="font-weight:700;font-variant-numeric:tabular-nums">${agg.outpostHits} · ${agg.outpostDamage}</span>
+            </div>
+          </div>
+          <div class="type-detail-row-mobile">
+            <div class="type-detail-row-header">
+              <span class="type-detail-row-label">基地命中明细</span>
+              <span style="font-weight:700;font-variant-numeric:tabular-nums">${baseDetail}</span>
+            </div>
+          </div>
+          <div class="type-detail-row-mobile">
+            <div class="type-detail-row-header">
+              <span class="type-detail-row-label">前哨站命中明细</span>
+              <span style="font-weight:700;font-variant-numeric:tabular-nums">${outpostDetail}</span>
+            </div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  return `
+    <div class="type-detail-section" style="margin-top:var(--sp-lg)">
+      <div class="type-detail-header">
+        <span class="type-detail-title">飞镖统计</span>
+      </div>
+      <div class="type-detail-grid" style="grid-template-columns:160px repeat(2, 1fr)">
+        <div class="type-detail-cell col-header corner-cell">指标</div>
+        <div class="type-detail-cell col-header">次数</div>
+        <div class="type-detail-cell col-header">伤害 / 明细</div>
+        <div class="type-detail-cell label">闸门开启</div>
+        <div class="type-detail-cell value">${agg.gateOpen}</div>
+        <div class="type-detail-cell value muted">-</div>
+        <div class="type-detail-cell label">命中总数</div>
+        <div class="type-detail-cell value">${agg.totalHits}</div>
+        <div class="type-detail-cell value">命中率 ${hitRate}</div>
+        <div class="type-detail-cell label">总伤害</div>
+        <div class="type-detail-cell value muted">-</div>
+        <div class="type-detail-cell value">${agg.totalDamage}</div>
+        <div class="type-detail-cell label">命中基地</div>
+        <div class="type-detail-cell value">${agg.baseHits}</div>
+        <div class="type-detail-cell value">${agg.baseDamage} · ${baseDetail}</div>
+        <div class="type-detail-cell label">命中前哨站</div>
+        <div class="type-detail-cell value">${agg.outpostHits}</div>
+        <div class="type-detail-cell value">${agg.outpostDamage} · ${outpostDetail}</div>
+      </div>
+    </div>`;
+}
+
+function getRadarStatsHtml(cols, schoolCollege) {
+  if (!radarStats2026 || schoolType !== 'Radar' || currentYear !== '2026') return '';
+  const radarData = radarStats2026.data;
+  if (!radarData) return '';
+
+  const allData = cols.map(c => {
+    const zoneData = radarData[c.zoneName];
+    return zoneData ? zoneData[schoolCollege] || null : null;
+  }).filter(Boolean);
+  if (allData.length === 0) return '';
+
+  // Aggregate across zones
+  const totalCnt = allData.reduce((s, d) => s + d.counterCnt, 0);
+  const edges = radarStats2026.bucketEdges;
+  const bucketSize = radarStats2026.bucketSize;
+  const aggHist = new Array(edges.length).fill(0);
+  for (const d of allData) {
+    for (let i = 0; i < d.histogram.length; i++) aggHist[i] += d.histogram[i];
+  }
+
+  const canvasId = 'radarCounterChart';
+  const isMob = isMobile();
+
+  if (isMob) {
+    return `
+      <div class="type-detail-section" style="margin-top:var(--sp-lg)">
+        <div class="type-detail-header">
+          <span class="type-detail-title">雷达反制UAV</span>
+          <span style="font-size:13px;color:var(--ink-mute)">共 ${totalCnt} 次</span>
+        </div>
+        <div class="type-detail-grid-mobile">
+          <div class="type-detail-row-mobile">
+            <div class="type-detail-row-header">
+              <span class="type-detail-row-label">反制次数</span>
+              <span style="font-weight:700;font-variant-numeric:tabular-nums">${totalCnt}</span>
+            </div>
+          </div>
+        </div>
+        <div style="position:relative;width:100%;margin:var(--sp-md) auto">
+          <canvas id="${canvasId}" style="width:100%;height:180px"></canvas>
+        </div>
+      </div>`;
+  }
+
+  return `
+    <div class="type-detail-section" style="margin-top:var(--sp-lg)">
+      <div class="type-detail-header">
+        <span class="type-detail-title">雷达反制UAV</span>
+        <span style="font-size:13px;color:var(--ink-mute)">共 ${totalCnt} 次 · 时间分布</span>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:var(--sp-md)">
+        <span style="font-size:13px;color:var(--ink-mute)">反制次数</span>
+        <span style="font-weight:700;font-size:20px;font-variant-numeric:tabular-nums">${totalCnt}</span>
+      </div>
+      <div style="position:relative;width:100%;max-width:800px;margin:var(--sp-md) auto">
+        <canvas id="${canvasId}" style="width:100%;height:240px"></canvas>
+      </div>
+    </div>`;
+}
+
+function renderRadarCounterChart() {
+  const canvas = document.getElementById('radarCounterChart');
+  if (!canvas || !radarStats2026) return;
+
+  const radarData = radarStats2026.data;
+  if (!radarData) return;
+
+  // Get data for current school
+  let region;
+  if (schoolZone === 'all') {
+    for (const z of DATA.zones) {
+      if (z.teams.some(t => t.collegeName === schoolCollege)) { region = z.zoneName; break; }
+    }
+  } else {
+    const zone = DATA.zones.find(z => z.zoneId === schoolZone);
+    if (zone) region = z.zoneName;
+  }
+  if (!region) return;
+
+  const schoolData = radarData[region] ? radarData[region][schoolCollege] : null;
+  if (!schoolData) return;
+
+  const edges = radarStats2026.bucketEdges;
+  const bucketSize = radarStats2026.bucketSize;
+  const hist = schoolData.histogram;
+
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const w = rect.width;
+  const h = rect.height;
+
+  const pad = { top: 20, right: 20, bottom: 40, left: 40 };
+  const chartW = w - pad.left - pad.right;
+  const chartH = h - pad.top - pad.bottom;
+  const maxVal = Math.max(...hist, 1);
+  const barW = chartW / hist.length;
+
+  // Background
+  ctx.clearRect(0, 0, w, h);
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.top + chartH * (1 - i / 4);
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(w - pad.right, y);
+    ctx.stroke();
+  }
+
+  // Bars
+  const gradient = ctx.createLinearGradient(0, pad.top, 0, pad.top + chartH);
+  gradient.addColorStop(0, 'rgba(74, 144, 226, 0.9)');
+  gradient.addColorStop(1, 'rgba(74, 144, 226, 0.3)');
+
+  for (let i = 0; i < hist.length; i++) {
+    if (hist[i] === 0) continue;
+    const x = pad.left + i * barW + 2;
+    const barH = (hist[i] / maxVal) * chartH;
+    const y = pad.top + chartH - barH;
+    ctx.fillStyle = gradient;
+    ctx.fillRect(x, y, barW - 4, barH);
+
+    // Value label
+    if (hist[i] > 0) {
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      ctx.font = '10px D-DIN, Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(hist[i], x + (barW - 4) / 2, y - 4);
+    }
+  }
+
+  // X-axis labels
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.font = '10px D-DIN, Arial, sans-serif';
+  ctx.textAlign = 'center';
+  for (let i = 0; i < edges.length; i++) {
+    const x = pad.left + i * barW + barW / 2;
+    const label = edges[i] >= 60 ? Math.floor(edges[i] / 60) + 'm' : edges[i] + 's';
+    if (i % 2 === 0 || edges.length <= 10) {
+      ctx.fillText(label, x, h - pad.bottom + 16);
+    }
+  }
+
+  // X-axis title
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.font = '11px D-DIN, Arial, sans-serif';
+  ctx.fillText('比赛时间', w / 2, h - 4);
+
+  // Y-axis labels
+  ctx.textAlign = 'right';
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  for (let i = 0; i <= 4; i++) {
+    const val = Math.round(maxVal * i / 4);
+    const y = pad.top + chartH * (1 - i / 4);
+    ctx.fillText(val, pad.left - 6, y + 4);
+  }
+}
+
+const TERRAIN_TYPES = ['飞坡', '过中央高地', '台阶跨越'];
+const TERRAIN_TYPE_MAP = { Hero: 'Hero', Infantry: 'Infantry', Guard: 'Guard' };
+
+function getTerrainStatsHtml(cols, schoolCollege) {
+  if (!terrainStats2026 || currentYear !== '2026') return '';
+  const targetType = TERRAIN_TYPE_MAP[schoolType];
+  if (!targetType) return '';
+
+  const allData = cols.map(c => {
+    const zoneData = terrainStats2026[c.zoneName];
+    if (!zoneData) return null;
+    const schoolData = zoneData[schoolCollege];
+    if (!schoolData) return null;
+    return schoolData[targetType] || null;
+  }).filter(Boolean);
+  if (allData.length === 0) return '';
+
+  // Aggregate across zones
+  const agg = { games: 0 };
+  TERRAIN_TYPES.forEach(t => { agg[t] = { count: 0, avg: 0 }; });
+  for (const d of allData) {
+    agg.games += d.games || 0;
+    TERRAIN_TYPES.forEach(t => {
+      if (d[t]) {
+        agg[t].count += d[t].count || 0;
+      }
+    });
+  }
+  // Recalculate avg from totals
+  TERRAIN_TYPES.forEach(t => {
+    agg[t].avg = agg.games > 0 ? +(agg[t].count / agg.games).toFixed(2) : 0;
+  });
+
+  const isMob = isMobile();
+  if (isMob) {
+    return `
+      <div class="type-detail-section" style="margin-top:var(--sp-lg)">
+        <div class="type-detail-header">
+          <span class="type-detail-title">地形通过</span>
+          <span style="font-size:13px;color:var(--ink-mute)">共 ${agg.games} 局</span>
+        </div>
+        <div class="type-detail-grid-mobile">
+          ${TERRAIN_TYPES.map(t => `
+            <div class="type-detail-row-mobile">
+              <div class="type-detail-row-header">
+                <span class="type-detail-row-label">${t}</span>
+                <span style="font-weight:700;font-variant-numeric:tabular-nums">${agg[t].count} · 场均 ${agg[t].avg}</span>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>`;
+  }
+
+  return `
+    <div class="type-detail-section" style="margin-top:var(--sp-lg)">
+      <div class="type-detail-header">
+        <span class="type-detail-title">地形通过</span>
+        <span style="font-size:13px;color:var(--ink-mute)">共 ${agg.games} 局</span>
+      </div>
+      <div class="type-detail-grid" style="grid-template-columns:160px repeat(2, 1fr)">
+        <div class="type-detail-cell col-header corner-cell">地形类型</div>
+        <div class="type-detail-cell col-header">总次数</div>
+        <div class="type-detail-cell col-header">场均次数</div>
+        ${TERRAIN_TYPES.map(t => `
+            <div class="type-detail-cell label">${t}</div>
+            <div class="type-detail-cell value">${agg[t].count}</div>
+            <div class="type-detail-cell value">${agg[t].avg}</div>
+        `).join('')}
+      </div>
+    </div>`;
 }
 
 // ── Ammo Chart ──
@@ -4669,7 +5168,7 @@ async function init() {
   try {
     await loadCollegeLogos();
     DATA = await loadData(currentYear);
-    await Promise.all([loadForumReports(), loadScoreHistory(), loadAssessmentHistory(), loadGoldcoinHistory(), loadMatchHistory()]);
+    await Promise.all([loadForumReports(), loadScoreHistory(), loadAssessmentHistory(), loadGoldcoinHistory(), loadMatchHistory(), loadAssemblyStats(), loadDartStats(), loadRadarStats(), loadTerrainStats()]);
     // Pre-load all years for search
     for (const y of YEAR_ORDER) { loadData(y); }
     handleRoute();
