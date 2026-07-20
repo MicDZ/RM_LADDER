@@ -2075,12 +2075,7 @@ function getRobotRank(robotType, zoneId) {
   }
   // Infantry: rank by k + a * 0.4
   if (robotType === 'Infantry') {
-    robots.forEach(r => {
-      const parts = (r.eaKDA || '0/0/0').split('/');
-      const k = parseFloat(parts[0]) || 0;
-      const a = parseFloat(parts[2]) || 0;
-      r._ladderScore = k + a * 0.4;
-    });
+    robots.forEach(r => { r._ladderScore = getKdaScore(r.eaKDA); });
     robots.sort((a, b) => (b._ladderScore || 0) - (a._ladderScore || 0));
   } else if (ASC_FIELDS.has(ladderCfg.field)) {
     robots.sort((a, b) => (a[ladderCfg.field] || 0) - (b[ladderCfg.field] || 0));
@@ -2861,6 +2856,11 @@ const FIELD_YEAR_ALIASES = { eaAssembleEcon: 'eaExchangeEcon' };
 const FIELD_YEAR_ALIASES_REV = {};
 for (const [k, v] of Object.entries(FIELD_YEAR_ALIASES)) FIELD_YEAR_ALIASES_REV[v] = k;
 
+function getKdaScore(value) {
+  const parts = String(value || '0/0/0').split('/');
+  return (parseFloat(parts[0]) || 0) + (parseFloat(parts[2]) || 0) * 0.4;
+}
+
 function getRobotFieldValue(robot, field, year) {
   if (!robot) return null;
   // Check if this field is valid for the given year
@@ -2897,14 +2897,9 @@ function getFieldRank(type, field, zoneId, year, college) {
       });
     });
   });
-  // Infantry: rank by k + a * 0.4
-  if (type === 'Infantry' && (field === 'eagKdaScore' || field === 'eaKDA')) {
-    robots.forEach(r => {
-      const parts = (r.eaKDA || '0/0/0').split('/');
-      const k = parseFloat(parts[0]) || 0;
-      const a = parseFloat(parts[2]) || 0;
-      r._rankScore = k + a * 0.4;
-    });
+  // KDA: rank by k + a * 0.4
+  if (field === 'eaKDA' || (type === 'Infantry' && field === 'eagKdaScore')) {
+    robots.forEach(r => { r._rankScore = getKdaScore(r.eaKDA); });
     robots.sort((a, b) => (b._rankScore || 0) - (a._rankScore || 0));
   } else if (ASC_FIELDS.has(field)) {
     robots.sort((a, b) => (getRobotFieldValue(a, field, year) || 0) - (getRobotFieldValue(b, field, year) || 0));
@@ -5090,12 +5085,7 @@ function computeQualifierScore(robot, type) {
   const cfg = YEAR_CONFIG[currentYear];
   const ladderCfg = cfg.ladderFields[type];
   if (!ladderCfg) return null;
-  if (type === 'Infantry') {
-    const parts = (robot.eaKDA || '0/0/0').split('/');
-    const k = parseFloat(parts[0]) || 0;
-    const a = parseFloat(parts[2]) || 0;
-    return k + a * 0.4;
-  }
+  if (type === 'Infantry') return getKdaScore(robot.eaKDA);
   return robot[ladderCfg.field] || 0;
 }
 
@@ -5214,9 +5204,8 @@ function renderQualifiersContent() {
     tableRobots.sort((a, b) => {
       let va = a[qualifiersSortField], vb = b[qualifiersSortField];
       if (typeof va === 'string' && va.includes('/')) {
-        const pa = va.split('/'), pb = vb.split('/');
-        va = (parseFloat(pa[0]) || 0) + (parseFloat(pa[2]) || 0) * 0.4;
-        vb = (parseFloat(pb[0]) || 0) + (parseFloat(pb[2]) || 0) * 0.4;
+        va = getKdaScore(va);
+        vb = getKdaScore(vb);
       }
       return ((va || 0) - (vb || 0)) * qualifiersSortDir;
     });
@@ -5523,12 +5512,7 @@ function renderLadder() {
 
   // Infantry: rank by k + a * 0.4 (parsed from eaKDA "k/d/a" string)
   if (ladderType === 'Infantry') {
-    robots.forEach(r => {
-      const parts = (r.eaKDA || '0/0/0').split('/');
-      const k = parseFloat(parts[0]) || 0;
-      const a = parseFloat(parts[2]) || 0;
-      r._ladderScore = k + a * 0.4;
-    });
+    robots.forEach(r => { r._ladderScore = getKdaScore(r.eaKDA); });
     robots.sort((a, b) => (b._ladderScore || 0) - (a._ladderScore || 0));
   } else if (ASC_FIELDS.has(cfg.field)) {
     robots.sort((a, b) => (a[cfg.field] || 0) - (b[cfg.field] || 0));
@@ -5568,9 +5552,8 @@ function renderMobileCards() {
     robots.sort((a, b) => {
       let va = a[sortField], vb = b[sortField];
       if (typeof va === 'string' && va.includes('/')) {
-        const pa = va.split('/'), pb = vb.split('/');
-        va = (parseFloat(pa[0]) || 0) + (parseFloat(pa[2]) || 0) * 0.4;
-        vb = (parseFloat(pb[0]) || 0) + (parseFloat(pb[2]) || 0) * 0.4;
+        va = getKdaScore(va);
+        vb = getKdaScore(vb);
       }
       return ((va || 0) - (vb || 0)) * sortDir;
     });
@@ -5638,11 +5621,8 @@ function renderTable() {
     robots.sort((a, b) => {
       let va = a[sortField], vb = b[sortField];
       if (typeof va === 'string' && va.includes('/')) {
-        // KDA string: compute k + a * 0.4
-        const pa = va.split('/');
-        const pb = vb.split('/');
-        va = (parseFloat(pa[0]) || 0) + (parseFloat(pa[2]) || 0) * 0.4;
-        vb = (parseFloat(pb[0]) || 0) + (parseFloat(pb[2]) || 0) * 0.4;
+        va = getKdaScore(va);
+        vb = getKdaScore(vb);
       }
       return ((va || 0) - (vb || 0)) * sortDir;
     });
