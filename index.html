@@ -397,6 +397,29 @@ td.num-cell.highlight {
   color: var(--on-primary);
   border-bottom-color: var(--on-primary);
 }
+.data-sort-tabs {
+  display: none;
+  margin-bottom: var(--sp-md);
+}
+.data-sort-tabs .tabs {
+  margin-bottom: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.data-sort-tabs .tabs::-webkit-scrollbar { display: none; }
+.data-sort-tabs .filter-label {
+  flex: 0 0 auto;
+  margin-right: var(--sp-xs);
+}
+.data-sort-tabs .tab-btn {
+  flex: 0 0 auto;
+  padding: var(--sp-xs) var(--sp-sm);
+  white-space: nowrap;
+}
+.sort-tab-arrow {
+  margin-left: var(--sp-xxs);
+  color: var(--on-primary);
+}
 
 /* ── Footer ── */
 .footer {
@@ -602,6 +625,7 @@ td.num-cell.highlight {
   }
 
   /* ── Mobile Data Cards ── */
+  .data-sort-tabs { display: block; }
   .mobile-data-cards {
     display: flex;
     flex-direction: column;
@@ -1555,6 +1579,7 @@ td.num-cell.highlight {
       <input type="text" class="search-input" id="searchInput" placeholder="搜索队名或学校...">
     </div>
     <div class="filter-bar" id="dataFilters"></div>
+    <div id="dataSortTabs" class="data-sort-tabs"></div>
     <div class="table-wrap">
       <table>
         <thead id="tableHead"></thead>
@@ -2860,6 +2885,83 @@ for (const [k, v] of Object.entries(FIELD_YEAR_ALIASES)) FIELD_YEAR_ALIASES_REV[
 function getKdaScore(value) {
   const parts = String(value || '0/0/0').split('/');
   return (parseFloat(parts[0]) || 0) + (parseFloat(parts[2]) || 0) * 0.4;
+}
+
+function getDataFields() {
+  const typeFields = YEAR_CONFIG[currentYear].typeFields;
+  if (currentType === 'all') return ['eaKDA', 'gkDamage', 'gKillCount', 'eaSmallHitRate'];
+  return typeFields[currentType] || ['eaKDA'];
+}
+
+function getDefaultDataSortField(fields) {
+  const ladderField = YEAR_CONFIG[currentYear].ladderFields[currentType]?.field;
+  // The ladder stores the infantry composite score separately from its displayed KDA field.
+  const displayField = ladderField === 'eagKdaScore' ? 'eaKDA' : ladderField;
+  return displayField && fields.includes(displayField)
+    ? displayField
+    : fields.find(f => f !== 'eaKDA') || fields[0];
+}
+
+function getDataSortConfig(fields) {
+  const defaultField = getDefaultDataSortField(fields);
+  const explicitField = sortField && fields.includes(sortField) ? sortField : null;
+  const field = explicitField || defaultField;
+  return {
+    field,
+    dir: explicitField ? sortDir : (ASC_FIELDS.has(field) ? 1 : -1),
+  };
+}
+
+function getDataSortValue(robot, field) {
+  if (field === 'eaKDA' || field === 'eagKdaScore') return getKdaScore(robot.eaKDA);
+  const value = getRobotFieldValue(robot, field, currentYear);
+  if (typeof value === 'number') return value;
+  const numericValue = parseFloat(value);
+  return Number.isFinite(numericValue) ? numericValue : 0;
+}
+
+function sortDataRobots(robots, fields) {
+  const sortConfig = getDataSortConfig(fields);
+  robots.sort((a, b) => (
+    getDataSortValue(a, sortConfig.field) - getDataSortValue(b, sortConfig.field)
+  ) * sortConfig.dir);
+  return sortConfig;
+}
+
+function renderDataSortTabs(fields) {
+  const container = document.getElementById('dataSortTabs');
+  if (!container) return;
+  const currentTabs = container.querySelector('.tabs');
+  const scrollLeft = currentTabs?.scrollLeft || 0;
+  const focusedTab = currentTabs?.contains(document.activeElement)
+    ? document.activeElement.dataset.field
+    : '';
+  const sortConfig = getDataSortConfig(fields);
+  container.innerHTML = `
+    <div class="tabs" role="tablist" aria-label="排序字段">
+      <span class="filter-label">排序</span>
+      ${fields.map(field => `
+        <button
+          class="tab-btn${sortConfig.field === field ? ' active' : ''}"
+          type="button"
+          role="tab"
+          data-field="${field}"
+          aria-selected="${sortConfig.field === field}"
+          onclick="toggleSort('${field}')"
+        >${esc(FIELD_MAP[field] || field)}${sortConfig.field === field ? `<span class="sort-tab-arrow" aria-hidden="true">${sortConfig.dir === 1 ? '↑' : '↓'}</span>` : ''}</button>
+      `).join('')}
+    </div>
+  `;
+
+  const nextTabs = container.querySelector('.tabs');
+  if (nextTabs) {
+    nextTabs.scrollLeft = Math.min(scrollLeft, nextTabs.scrollWidth - nextTabs.clientWidth);
+    if (focusedTab) {
+      const nextFocusedTab = [...nextTabs.querySelectorAll('.tab-btn')]
+        .find(tab => tab.dataset.field === focusedTab);
+      nextFocusedTab?.focus({ preventScroll: true });
+    }
+  }
 }
 
 function getRobotFieldValue(robot, field, year) {
@@ -5546,32 +5648,9 @@ function renderLadder() {
 // ── Data Table ──
 function renderMobileCards() {
   const robots = getRobots(currentZone, currentType);
-  const typeFields = YEAR_CONFIG[currentYear].typeFields;
-  let fields;
-  if (currentType === 'all') {
-    fields = ['eaKDA', 'gkDamage', 'gKillCount', 'eaSmallHitRate'];
-  } else {
-    fields = typeFields[currentType] || ['eaKDA'];
-  }
-
-  // Same sort logic as renderTable
-  if (sortField) {
-    robots.sort((a, b) => {
-      let va = a[sortField], vb = b[sortField];
-      if (typeof va === 'string' && va.includes('/')) {
-        va = getKdaScore(va);
-        vb = getKdaScore(vb);
-      }
-      return ((va || 0) - (vb || 0)) * sortDir;
-    });
-  } else {
-    const defaultSort = fields.find(f => f !== 'eaKDA') || fields[0];
-    if (ASC_FIELDS.has(defaultSort)) {
-      robots.sort((a, b) => ((a[defaultSort] || 0) - (b[defaultSort] || 0)));
-    } else {
-      robots.sort((a, b) => ((b[defaultSort] || 0) - (a[defaultSort] || 0)));
-    }
-  }
+  const fields = getDataFields();
+  renderDataSortTabs(fields);
+  sortDataRobots(robots, fields);
 
   const search = document.getElementById('searchInput').value.toLowerCase();
   const filtered = search
@@ -5612,36 +5691,9 @@ function toggleMobileCard(card) {
 function renderTable() {
   if (isMobile()) { renderMobileCards(); return; }
   const robots = getRobots(currentZone, currentType);
-
-  // Determine columns
-  const typeFields = YEAR_CONFIG[currentYear].typeFields;
-  let fields;
-  if (currentType === 'all') {
-    // Show common fields
-    fields = ['eaKDA', 'gkDamage', 'gKillCount', 'eaSmallHitRate'];
-  } else {
-    fields = typeFields[currentType] || ['eaKDA'];
-  }
-
-  // Sort
-  if (sortField) {
-    robots.sort((a, b) => {
-      let va = a[sortField], vb = b[sortField];
-      if (typeof va === 'string' && va.includes('/')) {
-        va = getKdaScore(va);
-        vb = getKdaScore(vb);
-      }
-      return ((va || 0) - (vb || 0)) * sortDir;
-    });
-  } else {
-    // Default sort by first numeric field desc (asc for ASC_FIELDS)
-    const defaultSort = fields.find(f => f !== 'eaKDA') || fields[0];
-    if (ASC_FIELDS.has(defaultSort)) {
-      robots.sort((a, b) => ((a[defaultSort] || 0) - (b[defaultSort] || 0)));
-    } else {
-      robots.sort((a, b) => ((b[defaultSort] || 0) - (a[defaultSort] || 0)));
-    }
-  }
+  const fields = getDataFields();
+  const sortConfig = sortDataRobots(robots, fields);
+  renderDataSortTabs(fields);
 
   // Header
   const thead = document.getElementById('tableHead');
@@ -5650,7 +5702,7 @@ function renderTable() {
     <th style="width:48px;text-align:center">#</th>
     <th>队伍</th>
     ${showZoneCol ? '<th>赛区</th>' : ''}
-    ${fields.map(f => `<th class="${sortField===f?'sorted':''}" style="text-align:right" onclick="toggleSort('${f}')">${FIELD_MAP[f]||f}<span class="sort-arrow">${sortField===f?(sortDir===1?'↑':'↓'):'↕'}</span></th>`).join('')}
+    ${fields.map(f => `<th class="${sortConfig.field===f?'sorted':''}" style="text-align:right" onclick="toggleSort('${f}')">${FIELD_MAP[f]||f}<span class="sort-arrow">${sortConfig.field===f?(sortConfig.dir===1?'↑':'↓'):'↕'}</span></th>`).join('')}
   </tr>`;
 
   // Body
@@ -5672,7 +5724,7 @@ function renderTable() {
       </div>
     </td>
     ${showZoneCol ? `<td style="color:var(--ink-mute);font-size:13px">${esc(r.zoneName)}</td>` : ''}
-    ${fields.map(f => `<td class="num-cell${f===fields[0]?' highlight':''}">${formatNum(r[f])}</td>`).join('')}
+    ${fields.map(f => `<td class="num-cell${f===sortConfig.field?' highlight':''}">${formatNum(r[f])}</td>`).join('')}
   </tr>`).join('');
 }
 
