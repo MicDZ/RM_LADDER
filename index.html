@@ -1697,6 +1697,7 @@ const YEAR_CONFIG = {
     file: 'static/robot_data_2026.json',
     excludedZones: [],
     subRegionalIds: ['614', '615', '616'],
+    qualifierZoneIds: { national: '618', revival: '617' },
     typeFields: {
       ...TYPE_FIELDS_DEFAULT,
       Sapper: ['eaAssembleEcon','eaAssembleSuccCnt','avgAssembleDiff'],
@@ -5061,7 +5062,13 @@ function toggleQualifierFilter(type) {
 
 function getQualifierRobots(qualifiers, typeFilter) {
   const robots = [];
-  DATA.zones.forEach(z => {
+  const qualifierZoneId = YEAR_CONFIG[currentYear]?.qualifierZoneIds?.[qualifiersGroup];
+  const sourceZones = qualifierZoneId
+    ? DATA.zones.filter(z => z.zoneId === qualifierZoneId)
+    : DATA.zones;
+  // Fall back to the full dataset when a historical data file has no stage zone.
+  const zones = sourceZones.length > 0 ? sourceZones : DATA.zones;
+  zones.forEach(z => {
     z.teams.forEach(t => {
       const q = qualifiers.find(q => q.college === t.collegeName);
       if (!q) return;
