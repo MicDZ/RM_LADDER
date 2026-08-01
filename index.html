@@ -1613,6 +1613,7 @@ td.num-cell.highlight {
   <!-- Compare Section -->
   <section id="compareSection" style="display:none;padding-top:120px">
     <h2 class="section-title">数据对比</h2>
+    <div id="compareStageFilter" style="text-align:center;margin-bottom:var(--sp-md)"></div>
     <div id="compareSlots"></div>
     <div id="compareAddBtn" style="margin:var(--sp-md) 0">
       <button class="pill" onclick="addCompareSlot()">+ 添加对比项</button>
@@ -4466,15 +4467,61 @@ function setDetailCompareZone(el) {
 let compareSlots = [];
 let compareType = 'Infantry';
 let compareHistoryTab = 'score';
+let compareStage = 'regional';
 
-function getCompareZones(year) {
+function isCompareRevivalZone(year, zone) {
+  const cfg = YEAR_CONFIG[year];
+  return zone.zoneName?.includes('复活赛') || cfg?.qualifierZoneIds?.revival === zone.zoneId;
+}
+
+function isCompareZoneInStage(year, zone, stage = compareStage) {
+  if (stage === 'revival') return isCompareRevivalZone(year, zone);
+  const regionalIds = YEAR_CONFIG[year]?.subRegionalIds || [];
+  // Historical files without regional zone metadata keep their existing scope.
+  return regionalIds.length === 0 || regionalIds.includes(zone.zoneId);
+}
+
+function getCompareZonesForStage(year, stage = compareStage) {
   const cfg = YEAR_CONFIG[year];
   if (!cfg) return [];
   const yearData = DATA_CACHE[year];
   if (!yearData) return [];
   return yearData.zones
     .filter(z => !cfg.excludedZones.includes(z.zoneId) && z.teams.length > 0 && zoneHasData(z))
+    .filter(z => isCompareZoneInStage(year, z, stage))
     .map(z => ({ zoneId: z.zoneId, zoneName: z.zoneName }));
+}
+
+function hasCompareRevivalData() {
+  return YEAR_ORDER.some(year => getCompareZonesForStage(year, 'revival').length > 0);
+}
+
+function renderCompareStageTabs() {
+  const container = document.getElementById('compareStageFilter');
+  if (!container) return;
+  if (!hasCompareRevivalData()) {
+    compareStage = 'regional';
+    container.innerHTML = '';
+    return;
+  }
+  container.innerHTML = `
+    <div class="filter-group" style="display:inline-flex">
+      <span class="filter-label">赛事</span>
+      <button class="pill${compareStage === 'regional' ? ' active' : ''}" onclick="setCompareStage('regional')">分区赛</button>
+      <button class="pill${compareStage === 'revival' ? ' active' : ''}" onclick="setCompareStage('revival')">复活赛</button>
+    </div>
+  `;
+}
+
+function setCompareStage(stage) {
+  if (stage !== 'regional' && stage !== 'revival') return;
+  if (stage === 'revival' && !hasCompareRevivalData()) return;
+  compareStage = stage;
+  renderComparePage();
+}
+
+function getCompareZones(year) {
+  return getCompareZonesForStage(year);
 }
 
 function getCompareColleges(year, zoneId) {
@@ -4484,6 +4531,7 @@ function getCompareColleges(year, zoneId) {
   const colleges = [];
   yearData.zones.forEach(z => {
     if (cfg.excludedZones.includes(z.zoneId)) return;
+    if (!isCompareZoneInStage(year, z)) return;
     // When qualifier filter is active, show colleges from all zones
     if (!qualifierFilter && z.zoneId !== zoneId) return;
     z.teams.forEach(t => {
@@ -4504,6 +4552,7 @@ function getCompareCollegeZone(year, college) {
 
   for (const zone of yearData.zones) {
     if (cfg.excludedZones.includes(zone.zoneId)) continue;
+    if (!isCompareZoneInStage(year, zone)) continue;
     for (const team of zone.teams) {
       if (team.collegeName !== college) continue;
       const hasStats = team.robots.some(robot => Object.entries(robot).some(([key, value]) =>
@@ -4576,6 +4625,8 @@ function onCompareSlotChange(idx, field, value) {
 }
 
 function renderComparePage() {
+  renderCompareStageTabs();
+
   // Initialize with 2 default slots
   if (compareSlots.length === 0) {
     const years = YEAR_ORDER;
@@ -4613,11 +4664,14 @@ function renderComparePage() {
   // Render slot selectors
   const slotsEl = document.getElementById('compareSlots');
   // Reset slot college if it's no longer in the filtered list
-  compareSlots.forEach(slot => {
+  compareSlots.forEach((slot, slotIndex) => {
     const zones = getCompareZones(slot.year);
+    if (!zones.find(z => z.zoneId === slot.zone)) {
+      slot.zone = zones.length > 0 ? zones[0].zoneId : '';
+    }
     const colleges = getCompareColleges(slot.year, slot.zone);
     if (colleges.length > 0 && !colleges.find(c => c.name === slot.college)) {
-      slot.college = colleges[0].name;
+      slot.college = colleges[Math.min(slotIndex, colleges.length - 1)].name;
     }
     if (qualifierFilter) {
       slot.zone = getCompareCollegeZone(slot.year, slot.college) || (zones.length > 0 ? zones[0].zoneId : '');
