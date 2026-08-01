@@ -196,6 +196,20 @@ body {
   height: 100%;
   pointer-events: none;
 }
+.heatmap-status {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-md);
+  color: rgba(255,255,255,0.7);
+  background: rgba(0,0,0,0.42);
+  text-align: center;
+}
+.heatmap-status[hidden] { display: none; }
 
 /* ── School Selector ── */
 .school-scroll {
@@ -337,6 +351,7 @@ body {
     <div class="heatmap-container" id="heatmap-container">
       <img src="static/map/26UC.jpg" alt="RMUC 2026 场地" class="field-image" id="field-image">
       <canvas id="heatmap-canvas" class="heatmap-canvas"></canvas>
+      <div id="heatmap-status" class="heatmap-status" hidden></div>
     </div>
   </div>
 
@@ -363,17 +378,19 @@ let currentInfantrySub = '合并'; // '合并', '步兵3', '步兵4'
 let currentSchool = 'all';
 let currentSide = 'all'; // 'all' = bilateral, 'red' = unified red side
 let canvas, ctx;
+let heatmapRenderId = 0;
+const schoolDataRequests = {};
 
 // Map display robot names to data keys
-function getRobotDataKeys(robot) {
+function getRobotDataKeys(robot, heatmapType = currentHeatmapType, infantrySub = currentInfantrySub) {
   if (robot === 'all') return null; // null means all
-  if (currentHeatmapType === 'position') {
+  if (heatmapType === 'position') {
     // Position heatmap uses different keys
     if (robot === '无人机') return ['空中'];
     if (robot === '雷达') return ['易伤'];
     if (robot === '步兵') {
-      if (currentInfantrySub === '合并') return ['步兵3', '步兵4'];
-      return [currentInfantrySub]; // '步兵3' or '步兵4'
+      if (infantrySub === '合并') return ['步兵3', '步兵4'];
+      return [infantrySub]; // '步兵3' or '步兵4'
     }
     return [robot]; // 英雄, 工程, 哨兵
   } else {
@@ -440,7 +457,9 @@ function decodeGrid(encoded) {
 
 function decodeRobotData(encoded) {
   if (typeof encoded === 'string') return decodeGrid(encoded);
-  if (encoded && encoded.red) return { red: decodeGrid(encoded.red), blue: decodeGrid(encoded.blue) };
+  if (encoded && typeof encoded === 'object' && ('red' in encoded || 'blue' in encoded)) {
+    return { red: decodeGrid(encoded.red), blue: decodeGrid(encoded.blue) };
+  }
   return encoded;
 }
 
@@ -452,30 +471,74 @@ function decodeSchoolData(raw) {
   return decoded;
 }
 
-async function loadSchoolData(region, school, robotType) {
-  const isAll = school === '_all';
-  const cacheKey = `${currentHeatmapType}/${region}/${school}/${robotType || 'all'}`;
-  if (schoolDataCache[cacheKey]) return schoolDataCache[cacheKey];
-  try {
-    let url;
-    if (currentHeatmapType === 'position') {
-      url = isAll
-        ? `static/heatmap/${encodeURIComponent(region)}/_all.json`
-        : `static/heatmap/${encodeURIComponent(region)}/${encodeURIComponent(school)}.json`;
-    } else {
-      const suffix = currentHeatmapType === 'attack' ? '_attack' : '_damage';
-      const typePart = robotType ? `_${encodeURIComponent(robotType)}` : '';
-      url = isAll
-        ? `static/heatmap/${encodeURIComponent(region)}/_all${suffix}${typePart}.json`
-        : `static/heatmap/${encodeURIComponent(region)}/${encodeURIComponent(school)}${suffix}${typePart}.json`;
+function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function fetchJsonWithRetry(url, { retries = 3, timeoutMs = 12000 } = {}) {
+  let lastError;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(url, { signal: controller.signal });
+      if (!response.ok) {
+        const error = new Error(`HTTP ${response.status} while loading ${url}`);
+        error.status = response.status;
+        throw error;
+      }
+      return await response.json();
+    } catch (error) {
+      lastError = error;
+      const isPermanentHttpError = error.status >= 400 && error.status < 500 && error.status !== 429;
+      if (attempt >= retries || isPermanentHttpError) break;
+      await wait(350 * 2 ** attempt);
+    } finally {
+      clearTimeout(timeout);
     }
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const raw = await res.json();
-    const data = currentHeatmapType === 'position' ? decodeSchoolData(raw) : { red: decodeGrid(raw.red), blue: decodeGrid(raw.blue) };
-    schoolDataCache[cacheKey] = data;
-    return data;
-  } catch { return null; }
+  }
+  throw lastError;
+}
+
+async function loadSchoolData(region, school, robotType, heatmapType = currentHeatmapType) {
+  const isAll = school === '_all';
+  const cacheKey = `${heatmapType}/${region}/${school}/${robotType || 'all'}`;
+  if (schoolDataCache[cacheKey]) return schoolDataCache[cacheKey];
+  if (schoolDataRequests[cacheKey]) return schoolDataRequests[cacheKey];
+
+  let url;
+  if (heatmapType === 'position') {
+    url = isAll
+      ? `static/heatmap/${encodeURIComponent(region)}/_all.json`
+      : `static/heatmap/${encodeURIComponent(region)}/${encodeURIComponent(school)}.json`;
+  } else {
+    const suffix = heatmapType === 'attack' ? '_attack' : '_damage';
+    const typePart = robotType ? `_${encodeURIComponent(robotType)}` : '';
+    url = isAll
+      ? `static/heatmap/${encodeURIComponent(region)}/_all${suffix}${typePart}.json`
+      : `static/heatmap/${encodeURIComponent(region)}/${encodeURIComponent(school)}${suffix}${typePart}.json`;
+  }
+
+  const request = fetchJsonWithRetry(url)
+    .then(raw => {
+      const data = heatmapType === 'position'
+        ? decodeSchoolData(raw)
+        : { red: decodeGrid(raw.red), blue: decodeGrid(raw.blue) };
+      schoolDataCache[cacheKey] = data;
+      return data;
+    })
+    .finally(() => delete schoolDataRequests[cacheKey]);
+  schoolDataRequests[cacheKey] = request;
+  return request;
+}
+
+async function loadSchoolDataOrNull(...args) {
+  try {
+    return await loadSchoolData(...args);
+  } catch (error) {
+    console.warn('Failed to load heatmap data:', error);
+    return null;
+  }
 }
 
 async function getSchoolsForRegion(region) {
@@ -483,11 +546,34 @@ async function getSchoolsForRegion(region) {
   return heatmapData.config.regionSchools[region] || [];
 }
 
+function setHeatmapStatus(message, { error = false, retry = false, onRetry = () => renderHeatmap() } = {}) {
+  const status = document.getElementById('heatmap-status');
+  if (!status) return;
+  status.hidden = false;
+  status.innerHTML = '';
+  const text = document.createElement('span');
+  text.textContent = message;
+  status.appendChild(text);
+  if (retry) {
+    const button = document.createElement('button');
+    button.className = 'pill';
+    button.textContent = '重试';
+    button.addEventListener('click', onRetry);
+    status.appendChild(button);
+  }
+  status.style.color = error ? '#ffb4b4' : 'rgba(255,255,255,0.7)';
+}
+
+function hideHeatmapStatus() {
+  const status = document.getElementById('heatmap-status');
+  if (status) status.hidden = true;
+}
+
 // ── Load Data ──
 async function loadData() {
+  setHeatmapStatus('正在加载热力图数据…');
   try {
-    const res = await fetch('static/heatmap/config.json');
-    const config = await res.json();
+    const config = await fetchJsonWithRetry('static/heatmap/config.json');
     heatmapData = { config, data: {} };
 
     initCanvas();
@@ -495,6 +581,7 @@ async function loadData() {
     renderHeatmap();
   } catch (error) {
     console.error('Failed to load data:', error);
+    setHeatmapStatus('热力图数据加载失败，请重试。', { error: true, retry: true, onRetry: loadData });
   }
 }
 
@@ -511,6 +598,13 @@ function initCanvas() {
   }
 
   fieldImage.onload = initAfterImageLoad;
+  fieldImage.onerror = () => {
+    setHeatmapStatus('场地图加载失败，请重试。', {
+      error: true,
+      retry: true,
+      onRetry: () => { fieldImage.src = `static/map/26UC.jpg?retry=${Date.now()}`; }
+    });
+  };
 
   if (fieldImage.complete) {
     initAfterImageLoad();
@@ -703,8 +797,17 @@ function setSchool(school) {
 async function renderHeatmap() {
   if (!canvas || !heatmapData) return;
 
+  const renderId = ++heatmapRenderId;
+  setHeatmapStatus('正在加载热力图数据…');
+
   const { config } = heatmapData;
   const { gridSize, robotTypes, xRange, yRange } = config;
+  const heatmapType = currentHeatmapType;
+  const region = currentRegion;
+  const robot = currentRobot;
+  const infantrySub = currentInfantrySub;
+  const school = currentSchool;
+  const side = currentSide;
 
   // Clear canvas
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -714,13 +817,13 @@ async function renderHeatmap() {
   let hasData = false;
 
   // Determine which regions to include
-  const regions = currentRegion === 'all' ? config.regions : [currentRegion];
+  const regions = region === 'all' ? config.regions : [region];
 
   // Determine which robot types to include (map display names to data keys)
-  const robotKeys = getRobotDataKeys(currentRobot);
+  const robotKeys = getRobotDataKeys(robot, heatmapType, infantrySub);
   let robots = robotKeys || robotTypes;
   // Attack/damage heatmaps only have 英雄/工程/步兵/空中/哨兵
-  if (currentHeatmapType !== 'position' && !robotKeys) {
+  if (heatmapType !== 'position' && !robotKeys) {
     robots = ['英雄', '工程', '步兵', '空中', '哨兵'];
   }
 
@@ -738,7 +841,7 @@ async function renderHeatmap() {
   // Helper: aggregate a {red, blue} grid pair into the main grid
   function aggregateSideGrid(robotData) {
     if (!robotData || !robotData.red || !robotData.blue) return;
-    if (currentSide === 'red') {
+    if (side === 'red') {
       const flippedBlue = flipGrid(robotData.blue);
       for (let y = 0; y < gridSize; y++) {
         for (let x = 0; x < gridSize; x++) {
@@ -756,14 +859,14 @@ async function renderHeatmap() {
   }
 
   // Load and aggregate data
-  const useAggregated = currentSchool === 'all';
+  const useAggregated = school === 'all';
   const regionList = useAggregated ? regions : regions; // same, but school list differs
 
   for (const region of regionList) {
     if (useAggregated) {
       // 使用预聚合文件，单次加载
-      if (currentHeatmapType === 'position') {
-        const schoolData = await loadSchoolData(region, '_all');
+      if (heatmapType === 'position') {
+        const schoolData = await loadSchoolDataOrNull(region, '_all', undefined, heatmapType);
         if (schoolData) {
           for (const robot of robots) {
             const robotData = schoolData[robot];
@@ -781,7 +884,7 @@ async function renderHeatmap() {
       } else {
         // Attack/damage: 并发加载各兵种的聚合文件
         const robotDataArr = await Promise.all(
-          robots.map(async robot => ({ robot, data: await loadSchoolData(region, '_all', robot) }))
+          robots.map(async robotType => ({ robotType, data: await loadSchoolDataOrNull(region, '_all', robotType, heatmapType) }))
         );
         for (const { data } of robotDataArr) {
           if (data) aggregateSideGrid(data);
@@ -789,10 +892,10 @@ async function renderHeatmap() {
       }
     } else {
       // 单个学校
-      const schoolList = [currentSchool];
+      const schoolList = [school];
       for (const school of schoolList) {
-        if (currentHeatmapType === 'position') {
-          const schoolData = await loadSchoolData(region, school);
+        if (heatmapType === 'position') {
+          const schoolData = await loadSchoolDataOrNull(region, school, undefined, heatmapType);
           if (!schoolData) continue;
           for (const robot of robots) {
             const robotData = schoolData[robot];
@@ -808,7 +911,7 @@ async function renderHeatmap() {
           }
         } else {
           for (const robot of robots) {
-            const schoolData = await loadSchoolData(region, school, robot);
+            const schoolData = await loadSchoolDataOrNull(region, school, robot, heatmapType);
             if (!schoolData) continue;
             aggregateSideGrid(schoolData);
           }
@@ -817,11 +920,21 @@ async function renderHeatmap() {
     }
   }
 
-  if (!hasData) return;
+  if (renderId !== heatmapRenderId) return;
+  if (!hasData) {
+    setHeatmapStatus('当前筛选暂无数据，或数据加载失败。', { error: true, retry: true });
+    return;
+  }
 
   // Normalize
   const maxVal = Math.max(...grid.flat());
-  if (maxVal === 0) return;
+  if (maxVal === 0) {
+    setHeatmapStatus('当前筛选暂无数据。', { retry: true });
+    return;
+  }
+
+  if (renderId !== heatmapRenderId) return;
+  hideHeatmapStatus();
 
   // Draw heatmap
   const [gameXMin, gameXMax] = xRange;

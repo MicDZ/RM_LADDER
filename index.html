@@ -1788,6 +1788,40 @@ let schoolType = '';
 let schoolZone = 'all'; // zone for radar chart ranking context
 let detailCompareZones = []; // zones selected for type detail comparison
 let detailYears = []; // years selected for cross-year comparison
+let schoolDetailRenderId = 0;
+
+// Static school files are shared by the heatmap and ammo/gold charts.
+const schoolFileCache = new Map();
+const schoolFileRequests = new Map();
+
+function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function fetchJsonWithRetry(url, { retries = 3, timeoutMs = 12000 } = {}) {
+  let lastError;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(url, { signal: controller.signal });
+      if (!response.ok) {
+        const error = new Error(`HTTP ${response.status} while loading ${url}`);
+        error.status = response.status;
+        throw error;
+      }
+      return await response.json();
+    } catch (error) {
+      lastError = error;
+      const isPermanentHttpError = error.status >= 400 && error.status < 500 && error.status !== 429;
+      if (attempt >= retries || isPermanentHttpError) break;
+      await wait(350 * 2 ** attempt);
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+  throw lastError;
+}
 
 // ── Load Data ──
 async function loadData(year) {
@@ -2218,6 +2252,8 @@ function filterSchoolGrid() {
 }
 
 function renderSchoolDetail() {
+  // Invalidate chart work from the previous school, zone, or type selection.
+  schoolDetailRenderId++;
   const searchPage = document.getElementById('schoolSearchPage');
   const detailPage = document.getElementById('schoolDetailPage');
 
@@ -3031,6 +3067,7 @@ function showTypeDetail(typeName, scroll) {
 }
 
 function renderTypeDetail() {
+  const renderId = ++schoolDetailRenderId;
   if (!schoolType || !TYPE_NAMES[schoolType]) return;
   const el = document.getElementById('schoolTypeDetail');
   const typeName = TYPE_NAMES[schoolType];
@@ -3164,12 +3201,12 @@ function renderTypeDetail() {
 
     // Render charts for 2026
     if (currentYear === '2026') {
-      renderSchoolHeatmap(el, typeName);
+      renderSchoolHeatmap(el, typeName, renderId);
       if (typeName === '英雄' || typeName === '步兵') {
-        renderAmmoChart(el, typeName);
+        renderAmmoChart(el, typeName, renderId);
       }
       if (typeName === '工程') {
-        renderGoldIncomeChart(el);
+        renderGoldIncomeChart(el, renderId);
       }
       if (typeName === '雷达') {
         renderRadarCounterChart();
@@ -3261,12 +3298,12 @@ function renderTypeDetail() {
 
   // Render charts for 2026
   if (currentYear === '2026') {
-    renderSchoolHeatmap(el, typeName);
+    renderSchoolHeatmap(el, typeName, renderId);
     if (typeName === '英雄' || typeName === '步兵') {
-      renderAmmoChart(el, typeName);
+      renderAmmoChart(el, typeName, renderId);
     }
     if (typeName === '工程') {
-      renderGoldIncomeChart(el);
+      renderGoldIncomeChart(el, renderId);
     }
     if (typeName === '雷达') {
       renderRadarCounterChart();
@@ -3735,8 +3772,49 @@ function getTerrainStatsHtml(cols, schoolCollege) {
     </div>`;
 }
 
+function isCurrentSchoolDetailRender(containerEl, renderId) {
+  return renderId === schoolDetailRenderId &&
+    containerEl === document.getElementById('schoolTypeDetail') &&
+    document.getElementById('schoolDetailPage').style.display !== 'none';
+}
+
+function appendSchoolDataState(containerEl, renderId, title, message, onRetry) {
+  if (!isCurrentSchoolDetailRender(containerEl, renderId)) return;
+  const section = document.createElement('div');
+  section.className = 'type-detail-section';
+  section.style.marginTop = 'var(--sp-lg)';
+  section.innerHTML = `
+    <div class="type-detail-header">
+      <span class="type-detail-title">${title}</span>
+    </div>
+    <p style="color:var(--ink-mute);margin-bottom:var(--sp-md)">${message}</p>
+  `;
+  const retry = document.createElement('button');
+  retry.className = 'pill';
+  retry.textContent = '重试';
+  retry.addEventListener('click', onRetry);
+  section.appendChild(retry);
+  containerEl.appendChild(section);
+}
+
+async function loadSchoolFile(region, school) {
+  const cacheKey = `${region}/${school}`;
+  if (schoolFileCache.has(cacheKey)) return schoolFileCache.get(cacheKey);
+  if (schoolFileRequests.has(cacheKey)) return schoolFileRequests.get(cacheKey);
+
+  const url = `static/heatmap/${encodeURIComponent(region)}/${encodeURIComponent(school)}.json`;
+  const request = fetchJsonWithRetry(url)
+    .then(raw => {
+      schoolFileCache.set(cacheKey, raw);
+      return raw;
+    })
+    .finally(() => schoolFileRequests.delete(cacheKey));
+  schoolFileRequests.set(cacheKey, request);
+  return request;
+}
+
 // ── Ammo Chart ──
-async function renderAmmoChart(containerEl, typeName) {
+async function renderAmmoChart(containerEl, typeName, renderId) {
   // Find region
   let region;
   if (schoolZone === 'all') {
@@ -3749,13 +3827,17 @@ async function renderAmmoChart(containerEl, typeName) {
   }
   if (!region) return;
 
-  // Load school data
+  // Load school data. The request is shared with the heatmap in this detail view.
   let schoolData;
   try {
-    const res = await fetch(`static/heatmap/${encodeURIComponent(region)}/${encodeURIComponent(schoolCollege)}.json`);
-    if (!res.ok) return;
-    schoolData = await res.json();
-  } catch { return; }
+    schoolData = await loadSchoolFile(region, schoolCollege);
+  } catch (error) {
+    console.warn('Failed to load ammo chart data:', error);
+    appendSchoolDataState(containerEl, renderId, '发弹曲线', '数据加载失败，请重试。', () => renderTypeDetail());
+    return;
+  }
+
+  if (!isCurrentSchoolDetailRender(containerEl, renderId)) return;
 
   const ammo = schoolData.ammo;
   if (!ammo) return;
@@ -3786,7 +3868,7 @@ async function renderAmmoChart(containerEl, typeName) {
   containerEl.appendChild(section);
 
   // Draw chart
-  const canvas = document.getElementById('ammoCanvas');
+  const canvas = section.querySelector('canvas');
   const dpr = window.devicePixelRatio || 1;
   const rect = canvas.getBoundingClientRect();
   canvas.width = rect.width * dpr;
@@ -3796,8 +3878,10 @@ async function renderAmmoChart(containerEl, typeName) {
   const w = rect.width;
   const h = rect.height;
 
-  const maxVal = Math.max(...data, 1);
-  const maxTime = (data.length - 1) * interval;
+  const points = data.filter(value => Number.isFinite(value));
+  if (points.length === 0) return;
+  const maxVal = Math.max(...points, 1);
+  const maxTime = (points.length - 1) * interval;
 
   const pad = { top: 20, right: 20, bottom: 30, left: 50 };
   const chartW = w - pad.left - pad.right;
@@ -3825,7 +3909,7 @@ async function renderAmmoChart(containerEl, typeName) {
   // X axis labels
   ctx.fillStyle = 'rgba(255,255,255,0.4)';
   ctx.textAlign = 'center';
-  const xSteps = Math.min(6, data.length);
+  const xSteps = Math.min(6, Math.max(1, points.length));
   for (let i = 0; i <= xSteps; i++) {
     const x = pad.left + chartW * i / xSteps;
     const t = Math.round(maxTime * i / xSteps);
@@ -3836,9 +3920,9 @@ async function renderAmmoChart(containerEl, typeName) {
   ctx.strokeStyle = '#3498db';
   ctx.lineWidth = 2;
   ctx.beginPath();
-  for (let i = 0; i < data.length; i++) {
-    const x = pad.left + (i / (data.length - 1)) * chartW;
-    const y = pad.top + chartH * (1 - data[i] / maxVal);
+  for (let i = 0; i < points.length; i++) {
+    const x = pad.left + (i / Math.max(points.length - 1, 1)) * chartW;
+    const y = pad.top + chartH * (1 - points[i] / maxVal);
     if (i === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
   }
@@ -3852,7 +3936,7 @@ async function renderAmmoChart(containerEl, typeName) {
   ctx.fill();
 
   // End value label
-  const lastVal = data[data.length - 1];
+  const lastVal = points[points.length - 1];
   const lastX = pad.left + chartW;
   const lastY = pad.top + chartH * (1 - lastVal / maxVal);
   ctx.fillStyle = '#3498db';
@@ -3862,7 +3946,7 @@ async function renderAmmoChart(containerEl, typeName) {
 }
 
 // ── Gold Income Chart (Sapper) ──
-async function renderGoldIncomeChart(containerEl) {
+async function renderGoldIncomeChart(containerEl, renderId) {
   // Find region
   let region;
   if (schoolZone === 'all') {
@@ -3875,13 +3959,17 @@ async function renderGoldIncomeChart(containerEl) {
   }
   if (!region) return;
 
-  // Load school data
+  // Load school data. The request is shared with the heatmap in this detail view.
   let schoolData;
   try {
-    const res = await fetch(`static/heatmap/${encodeURIComponent(region)}/${encodeURIComponent(schoolCollege)}.json`);
-    if (!res.ok) return;
-    schoolData = await res.json();
-  } catch { return; }
+    schoolData = await loadSchoolFile(region, schoolCollege);
+  } catch (error) {
+    console.warn('Failed to load gold income chart data:', error);
+    appendSchoolDataState(containerEl, renderId, '金币曲线', '数据加载失败，请重试。', () => renderTypeDetail());
+    return;
+  }
+
+  if (!isCurrentSchoolDetailRender(containerEl, renderId)) return;
 
   const goldIncome = schoolData.goldIncome;
   if (!goldIncome) return;
@@ -3908,7 +3996,7 @@ async function renderGoldIncomeChart(containerEl) {
   containerEl.appendChild(section);
 
   // Draw chart
-  const canvas = document.getElementById('goldIncomeCanvas');
+  const canvas = section.querySelector('canvas');
   const dpr = window.devicePixelRatio || 1;
   const rect = canvas.getBoundingClientRect();
   canvas.width = rect.width * dpr;
@@ -3918,8 +4006,10 @@ async function renderGoldIncomeChart(containerEl) {
   const w = rect.width;
   const h = rect.height;
 
-  const maxVal = Math.max(...data, 1);
-  const maxTime = (data.length - 1) * interval;
+  const points = data.filter(value => Number.isFinite(value));
+  if (points.length === 0) return;
+  const maxVal = Math.max(...points, 1);
+  const maxTime = (points.length - 1) * interval;
 
   const pad = { top: 20, right: 20, bottom: 30, left: 50 };
   const chartW = w - pad.left - pad.right;
@@ -3947,7 +4037,7 @@ async function renderGoldIncomeChart(containerEl) {
   // X axis labels
   ctx.fillStyle = 'rgba(255,255,255,0.4)';
   ctx.textAlign = 'center';
-  const xSteps = Math.min(6, data.length);
+  const xSteps = Math.min(6, Math.max(1, points.length));
   for (let i = 0; i <= xSteps; i++) {
     const x = pad.left + chartW * i / xSteps;
     const t = Math.round(maxTime * i / xSteps);
@@ -3959,9 +4049,9 @@ async function renderGoldIncomeChart(containerEl) {
   ctx.strokeStyle = '#f39c12';
   ctx.lineWidth = 2;
   ctx.beginPath();
-  for (let i = 0; i < data.length; i++) {
-    const x = pad.left + (i / (data.length - 1)) * chartW;
-    const y = pad.top + chartH * (1 - data[i] / maxVal);
+  for (let i = 0; i < points.length; i++) {
+    const x = pad.left + (i / Math.max(points.length - 1, 1)) * chartW;
+    const y = pad.top + chartH * (1 - points[i] / maxVal);
     if (i === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
   }
@@ -3975,7 +4065,7 @@ async function renderGoldIncomeChart(containerEl) {
   ctx.fill();
 
   // End value label
-  const lastVal = data[data.length - 1];
+  const lastVal = points[points.length - 1];
   const lastX = pad.left + chartW;
   const lastY = pad.top + chartH * (1 - lastVal / maxVal);
   ctx.fillStyle = '#f39c12';
@@ -4018,7 +4108,9 @@ function decodeGrid(encoded) {
 
 function decodeRobotData(encoded) {
   if (typeof encoded === 'string') return decodeGrid(encoded);
-  if (encoded && encoded.red) return { red: decodeGrid(encoded.red), blue: decodeGrid(encoded.blue) };
+  if (encoded && typeof encoded === 'object' && ('red' in encoded || 'blue' in encoded)) {
+    return { red: decodeGrid(encoded.red), blue: decodeGrid(encoded.blue) };
+  }
   return encoded;
 }
 
@@ -4037,7 +4129,7 @@ function getHeatmapTypeNames(typeName) {
   return [typeName];
 }
 
-async function renderSchoolHeatmap(containerEl, typeName) {
+async function renderSchoolHeatmap(containerEl, typeName, renderId) {
   const heatmapTypes = getHeatmapTypeNames(typeName);
 
   // Find the region for this school based on zone
@@ -4056,17 +4148,22 @@ async function renderSchoolHeatmap(containerEl, typeName) {
   }
   if (!region) return;
 
-  // Load school heatmap data
-  let schoolData;
+  // Load school heatmap data. This is shared with the related chart request.
+  let raw;
   try {
-    const res = await fetch(`static/heatmap/${encodeURIComponent(region)}/${encodeURIComponent(schoolCollege)}.json`);
-    if (!res.ok) return;
-    const raw = await res.json();
-    schoolData = {};
-    for (const [rtype, data] of Object.entries(raw)) {
-      schoolData[rtype] = decodeRobotData(data);
-    }
-  } catch { return; }
+    raw = await loadSchoolFile(region, schoolCollege);
+  } catch (error) {
+    console.warn('Failed to load school heatmap data:', error);
+    appendSchoolDataState(containerEl, renderId, `${typeName}热力图`, '数据加载失败，请重试。', () => renderTypeDetail());
+    return;
+  }
+
+  if (!isCurrentSchoolDetailRender(containerEl, renderId)) return;
+
+  const schoolData = {};
+  for (const [rtype, data] of Object.entries(raw)) {
+    schoolData[rtype] = decodeRobotData(data);
+  }
 
   // Combine data from all matching types
   const gridSize = 60;
@@ -4105,6 +4202,7 @@ async function renderSchoolHeatmap(containerEl, typeName) {
       <canvas class="heatmap-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none"></canvas>
     </div>
   `;
+  if (!isCurrentSchoolDetailRender(containerEl, renderId)) return;
   containerEl.appendChild(heatmapSection);
 
   // Render heatmap on canvas
@@ -4173,8 +4271,19 @@ async function renderSchoolHeatmap(containerEl, typeName) {
     }
   }
 
-  if (img.complete) draw();
-  else img.onload = draw;
+  if (img.complete && img.naturalWidth > 0) {
+    draw();
+  } else {
+    img.onload = draw;
+    img.onerror = () => {
+      heatmapSection.querySelector('canvas').style.display = 'none';
+      const message = document.createElement('p');
+      message.style.color = 'var(--ink-mute)';
+      message.style.marginTop = 'var(--sp-md)';
+      message.textContent = '场地图加载失败，请刷新后重试。';
+      heatmapSection.querySelector('.heatmap-wrap').appendChild(message);
+    };
+  }
 }
 
 function openDistribution(field, zoneId) {
@@ -4387,6 +4496,26 @@ function getCompareColleges(year, zoneId) {
   return colleges;
 }
 
+function getCompareCollegeZone(year, college) {
+  const yearData = DATA_CACHE[year];
+  if (!yearData) return '';
+  const cfg = YEAR_CONFIG[year];
+  const candidates = [];
+
+  for (const zone of yearData.zones) {
+    if (cfg.excludedZones.includes(zone.zoneId)) continue;
+    for (const team of zone.teams) {
+      if (team.collegeName !== college) continue;
+      const hasStats = team.robots.some(robot => Object.entries(robot).some(([key, value]) =>
+        typeof value === 'number' && value > 0 && key !== 'id' && key !== 'robotNumber'
+      ));
+      candidates.push({ zoneId: zone.zoneId, hasStats });
+    }
+  }
+
+  return candidates.find(candidate => candidate.hasStats)?.zoneId || candidates[0]?.zoneId || '';
+}
+
 function getCompareRobot(year, zoneId, college, type) {
   const yearData = DATA_CACHE[year];
   if (!yearData) return null;
@@ -4433,9 +4562,14 @@ function onCompareSlotChange(idx, field, value) {
     slot.zone = zones.length > 0 ? zones[0].zoneId : '';
     const colleges = getCompareColleges(value, slot.zone);
     slot.college = colleges.length > 0 ? colleges[0].name : '';
+    if (qualifierFilter) {
+      slot.zone = getCompareCollegeZone(value, slot.college) || slot.zone;
+    }
   } else if (field === 'zone') {
     const colleges = getCompareColleges(slot.year, value);
     slot.college = colleges.length > 0 ? colleges[0].name : '';
+  } else if (field === 'college' && qualifierFilter) {
+    slot.zone = getCompareCollegeZone(slot.year, slot.college) || slot.zone;
   }
 
   renderComparePage();
@@ -4481,12 +4615,12 @@ function renderComparePage() {
   // Reset slot college if it's no longer in the filtered list
   compareSlots.forEach(slot => {
     const zones = getCompareZones(slot.year);
-    if (qualifierFilter && zones.length > 0 && slot.zone !== zones[0].zoneId) {
-      slot.zone = zones[0].zoneId;
-    }
     const colleges = getCompareColleges(slot.year, slot.zone);
     if (colleges.length > 0 && !colleges.find(c => c.name === slot.college)) {
       slot.college = colleges[0].name;
+    }
+    if (qualifierFilter) {
+      slot.zone = getCompareCollegeZone(slot.year, slot.college) || (zones.length > 0 ? zones[0].zoneId : '');
     }
   });
   slotsEl.innerHTML = qualifierFilterHtml() + compareSlots.map((slot, idx) => {
