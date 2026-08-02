@@ -2128,20 +2128,15 @@ function getRobotRank(robotType, zoneId) {
   const cfg = YEAR_CONFIG[currentYear];
   const ladderCfg = cfg.ladderFields[robotType];
   if (!ladderCfg) return { total: 0, sorted: [], field: '', label: '' };
-  let robots;
-  if (zoneId === 'all') {
-    robots = getRobots('all', robotType);
-  } else {
-    robots = getRobots(zoneId, robotType);
-  }
-  // Infantry: rank by k + a * 0.4
+  const robots = getRobots(zoneId === 'all' ? 'all' : zoneId, robotType);
+  const field = ladderCfg.field;
+  rankByMetric(
+    robots,
+    robot => getMetricValue(robot, field, currentYear),
+    ASC_FIELDS.has(field)
+  );
   if (robotType === 'Infantry') {
     robots.forEach(r => { r._ladderScore = getKdaScore(r.eaKDA); });
-    robots.sort((a, b) => (b._ladderScore || 0) - (a._ladderScore || 0));
-  } else if (ASC_FIELDS.has(ladderCfg.field)) {
-    robots.sort((a, b) => (a[ladderCfg.field] || 0) - (b[ladderCfg.field] || 0));
-  } else {
-    robots.sort((a, b) => (b[ladderCfg.field] || 0) - (a[ladderCfg.field] || 0));
   }
   return { total: robots.length, sorted: robots, field: ladderCfg.field, label: ladderCfg.label };
 }
@@ -2381,7 +2376,7 @@ function renderRadarChart() {
     for (let i = 0; i < ranked.sorted.length; i++) {
       const r = ranked.sorted[i];
       if (r.collegeName === schoolCollege) {
-        rank = i + 1;
+        rank = r._rankWorst;
         value = (type === 'Infantry' ? r._ladderScore : r[ranked.field]) || 0;
         break;
       }
@@ -2577,7 +2572,7 @@ function renderHistoryChart() {
 
   const activeTab = available.find(t => t.key === currentHistoryTab);
   const dataObj = activeTab.data();
-  const entries = getHistoryData(dataObj, schoolCollege);
+  const entries = getHistoryChartData(dataObj, schoolCollege, activeTab.key);
 
   wrap.style.display = 'block';
 
@@ -2924,6 +2919,46 @@ function getKdaScore(value) {
   return (parseFloat(parts[0]) || 0) + (parseFloat(parts[2]) || 0) * 0.4;
 }
 
+function getMetricValue(item, field, year) {
+  if (field === 'eaKDA' || field === 'eagKdaScore') {
+    return getKdaScore(item?.eaKDA);
+  }
+  const value = getRobotFieldValue(item, field, year);
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  const numericValue = parseFloat(value);
+  return Number.isFinite(numericValue) ? numericValue : 0;
+}
+
+function sortByMetric(items, valueFn, ascending) {
+  items.sort((a, b) => (valueFn(a) - valueFn(b)) * (ascending ? 1 : -1));
+  return items;
+}
+
+// Keep both ends of each tie group: normal rankings use the best position,
+// while radar and history charts use the conservative worst position.
+function assignMetricRanks(items, valueFn) {
+  let groupStart = 0;
+  while (groupStart < items.length) {
+    const groupValue = valueFn(items[groupStart]);
+    let groupEnd = groupStart + 1;
+    while (groupEnd < items.length && valueFn(items[groupEnd]) === groupValue) {
+      groupEnd++;
+    }
+    const bestRank = groupStart + 1;
+    const worstRank = groupEnd;
+    for (let i = groupStart; i < groupEnd; i++) {
+      items[i]._rankBest = bestRank;
+      items[i]._rankWorst = worstRank;
+    }
+    groupStart = groupEnd;
+  }
+  return items;
+}
+
+function rankByMetric(items, valueFn, ascending) {
+  return assignMetricRanks(sortByMetric(items, valueFn, ascending), valueFn);
+}
+
 function getDataFields() {
   const typeFields = YEAR_CONFIG[currentYear].typeFields;
   if (currentType === 'all') return ['eaKDA', 'gkDamage', 'gKillCount', 'eaSmallHitRate'];
@@ -2950,18 +2985,16 @@ function getDataSortConfig(fields) {
 }
 
 function getDataSortValue(robot, field) {
-  if (field === 'eaKDA' || field === 'eagKdaScore') return getKdaScore(robot.eaKDA);
-  const value = getRobotFieldValue(robot, field, currentYear);
-  if (typeof value === 'number') return value;
-  const numericValue = parseFloat(value);
-  return Number.isFinite(numericValue) ? numericValue : 0;
+  return getMetricValue(robot, field, currentYear);
 }
 
 function sortDataRobots(robots, fields) {
   const sortConfig = getDataSortConfig(fields);
-  robots.sort((a, b) => (
-    getDataSortValue(a, sortConfig.field) - getDataSortValue(b, sortConfig.field)
-  ) * sortConfig.dir);
+  rankByMetric(
+    robots,
+    robot => getDataSortValue(robot, sortConfig.field),
+    sortConfig.dir === 1
+  );
   return sortConfig;
 }
 
@@ -3022,7 +3055,7 @@ function getRobotFieldValue(robot, field, year) {
   return null;
 }
 
-function getFieldRank(type, field, zoneId, year, college) {
+function getFieldRank(type, field, zoneId, year, college, rankMode = 'best') {
   const targetCollege = college || schoolCollege;
   const yearData = year === currentYear ? DATA : DATA_CACHE[year];
   if (!yearData) return { rank: '-', total: '?' };
@@ -3037,17 +3070,14 @@ function getFieldRank(type, field, zoneId, year, college) {
       });
     });
   });
-  // KDA: rank by k + a * 0.4
-  if (field === 'eaKDA' || (type === 'Infantry' && field === 'eagKdaScore')) {
-    robots.forEach(r => { r._rankScore = getKdaScore(r.eaKDA); });
-    robots.sort((a, b) => (b._rankScore || 0) - (a._rankScore || 0));
-  } else if (ASC_FIELDS.has(field)) {
-    robots.sort((a, b) => (getRobotFieldValue(a, field, year) || 0) - (getRobotFieldValue(b, field, year) || 0));
-  } else {
-    robots.sort((a, b) => (getRobotFieldValue(b, field, year) || 0) - (getRobotFieldValue(a, field, year) || 0));
-  }
+  rankByMetric(
+    robots,
+    robot => getMetricValue(robot, field, year),
+    ASC_FIELDS.has(field)
+  );
+  const rankKey = rankMode === 'worst' ? '_rankWorst' : '_rankBest';
   for (let i = 0; i < robots.length; i++) {
-    if (robots[i].collegeName === targetCollege) return { rank: i + 1, total: robots.length };
+    if (robots[i].collegeName === targetCollege) return { rank: robots[i][rankKey], total: robots.length };
   }
   return { rank: '-', total: robots.length };
 }
@@ -4741,7 +4771,7 @@ function renderCompareResult() {
         const cfg = YEAR_CONFIG[slot.year];
         const ladderCfg = cfg?.ladderFields?.[typeKey];
         if (!ladderCfg) return { typeKey, typeName: TYPE_NAMES[typeKey], rank: '-', total: '?' };
-        const ri = getFieldRank(typeKey, ladderCfg.field, slot.zone, slot.year, slot.college);
+        const ri = getFieldRank(typeKey, ladderCfg.field, slot.zone, slot.year, slot.college, 'worst');
         const robot = getCompareRobot(slot.year, slot.zone, slot.college, typeKey);
         const val = robot ? getRobotFieldValue(robot, ladderCfg.field, slot.year) : null;
         return { typeKey, typeName: TYPE_NAMES[typeKey], rank: ri.rank, total: ri.total, value: val };
@@ -4799,7 +4829,7 @@ function renderCompareResult() {
   ];
   const radarSlotData = resolved.map((s, si) => {
     const fieldRanks = fields.map(f => {
-      const ri = s.robot ? getFieldRank(compareType, f, s.zone, s.year, s.college) : { rank: '-', total: '?' };
+      const ri = s.robot ? getFieldRank(compareType, f, s.zone, s.year, s.college, 'worst') : { rank: '-', total: '?' };
       const val = s.robot ? getRobotFieldValue(s.robot, f, s.year) : null;
       return { typeKey: f, typeName: FIELD_MAP[f] || f, rank: ri.rank, total: ri.total, value: val };
     });
@@ -4957,7 +4987,7 @@ function renderCompareHistory() {
     const d = t.data();
     if (!d) return false;
     return compareSlots.some(slot => {
-      const entries = d.schools[slot.college];
+      const entries = getHistoryData(d, slot.college);
       return entries && entries.length >= 2;
     });
   });
@@ -4990,7 +5020,7 @@ function renderCompareHistory() {
 
     // Collect entries per slot
     const slotEntries = compareSlots.map((slot, si) => {
-      const entries = dataObj.schools[slot.college] || [];
+      const entries = getHistoryChartData(dataObj, slot.college, activeTab.key) || [];
       return { college: slot.college, entries, color: slotColors[si % slotColors.length] };
     }).filter(s => s.entries.length >= 2);
 
@@ -5458,6 +5488,7 @@ function renderQualifiersContent() {
   });
 
   const sorted = Object.entries(collegeBest).sort((a, b) => (b[1].score || 0) - (a[1].score || 0));
+  assignMetricRanks(sorted, entry => entry[1].score || 0);
 
   const rankingLabel = `按「${cfg.ladderFields[qualifiersType]?.label || qualifiersType}」排名`;
 
@@ -5465,11 +5496,13 @@ function renderQualifiersContent() {
 
   // Ladder
   html += `<div class="ladder">`;
-  sorted.forEach(([college, data], i) => {
+  sorted.forEach(entry => {
+    const [college, data] = entry;
+    const rank = entry._rankBest;
     const r = data.robot;
     html += `
-      <div class="ladder-card${i < 3 ? ' rank-' + (i+1) : ''}" style="cursor:pointer" onclick="navigateToSchool('${esc(college)}','${data.type}','${currentYear}')">
-        <div class="ladder-rank${i < 3 ? ' top3' : ''}">${i + 1}</div>
+      <div class="ladder-card${rank <= 3 ? ' rank-' + rank : ''}" style="cursor:pointer" onclick="navigateToSchool('${esc(college)}','${data.type}','${currentYear}')">
+        <div class="ladder-rank${rank <= 3 ? ' top3' : ''}">${rank}</div>
         <img class="ladder-logo" src="${esc(r.collegeLogo)}" alt="" loading="lazy" width="40" height="40" style="background:#fff;padding:2px;border-radius:50%">
         <div class="ladder-info">
           <div class="ladder-team">${esc(r.teamName)}</div>
@@ -5497,30 +5530,17 @@ function renderQualifiersContent() {
 
   // Sort robots (same logic as main page renderTable)
   const tableRobots = [...robots];
-  if (qualifiersSortField) {
-    tableRobots.sort((a, b) => {
-      let va = a[qualifiersSortField], vb = b[qualifiersSortField];
-      if (typeof va === 'string' && va.includes('/')) {
-        va = getKdaScore(va);
-        vb = getKdaScore(vb);
-      }
-      return ((va || 0) - (vb || 0)) * qualifiersSortDir;
-    });
-  } else {
-    const defaultSort = displayFields.find(f => f !== 'eaKDA') || displayFields[0];
-    if (ASC_FIELDS.has(defaultSort)) {
-      tableRobots.sort((a, b) => (a[defaultSort] || 0) - (b[defaultSort] || 0));
-    } else {
-      tableRobots.sort((a, b) => (b[defaultSort] || 0) - (a[defaultSort] || 0));
-    }
-  }
+  const tableRankField = qualifiersSortField || (displayFields.find(f => f !== 'eaKDA') || displayFields[0]);
+  const tableAscending = qualifiersSortField ? qualifiersSortDir === 1 : ASC_FIELDS.has(tableRankField);
+  sortByMetric(tableRobots, robot => getMetricValue(robot, tableRankField, currentYear), tableAscending);
+  assignMetricRanks(tableRobots, robot => getMetricValue(robot, tableRankField, currentYear));
 
   // Mobile: card layout / Desktop: table
   if (isMobile()) {
-    html += `<div class="mobile-data-cards">${tableRobots.map((r, i) => `
+    html += `<div class="mobile-data-cards">${tableRobots.map(r => `
       <div class="mobile-data-card" onclick="toggleMobileCard(this)">
         <div class="mobile-data-card-header">
-          <span class="mobile-data-card-rank${i < 3 ? ' top3' : ''}">${i + 1}</span>
+          <span class="mobile-data-card-rank${r._rankBest <= 3 ? ' top3' : ''}">${r._rankBest}</span>
           <img src="${esc(r.collegeLogo)}" alt="" loading="lazy" width="32" height="32" style="background:#fff;padding:2px;border-radius:50%">
           <div class="mobile-data-card-name">
             <div class="mobile-data-card-team">${esc(r.teamName)}</div>
@@ -5553,9 +5573,9 @@ function renderQualifiersContent() {
     });
     html += `</tr></thead><tbody>`;
 
-    tableRobots.forEach((r, i) => {
+    tableRobots.forEach(r => {
       html += `<tr style="cursor:pointer" onclick="navigateToSchool('${esc(r.collegeName)}','${esc(r.type)}','${currentYear}')">`;
-      html += `<td class="rank-cell${i < 3 ? ' top3' : ''}">${i + 1}</td>`;
+      html += `<td class="rank-cell${r._rankBest <= 3 ? ' top3' : ''}">${r._rankBest}</td>`;
       html += `<td><div class="team-cell"><img src="${esc(r.collegeLogo)}" alt="" width="36" height="36" style="background:#fff;padding:2px;border-radius:50%"><div class="team-text"><div class="team-name">${esc(r.teamName)}</div><div class="team-college">${esc(r.collegeName)}</div></div></div></td>`;
       html += `<td style="color:var(--ink-mute);font-size:13px">${esc(r.zoneName)}</td>`;
       html += `<td>${esc(TYPE_NAMES[r.type] || r.type)}</td>`;
@@ -5807,22 +5827,21 @@ function renderLadder() {
   const robots = getRobots(ladderZone, ladderType);
   const cfg = YEAR_CONFIG[currentYear].ladderFields[ladderType];
 
-  // Infantry: rank by k + a * 0.4 (parsed from eaKDA "k/d/a" string)
+  rankByMetric(
+    robots,
+    robot => getMetricValue(robot, cfg.field, currentYear),
+    ASC_FIELDS.has(cfg.field)
+  );
   if (ladderType === 'Infantry') {
     robots.forEach(r => { r._ladderScore = getKdaScore(r.eaKDA); });
-    robots.sort((a, b) => (b._ladderScore || 0) - (a._ladderScore || 0));
-  } else if (ASC_FIELDS.has(cfg.field)) {
-    robots.sort((a, b) => (a[cfg.field] || 0) - (b[cfg.field] || 0));
-  } else {
-    robots.sort((a, b) => (b[cfg.field] || 0) - (a[cfg.field] || 0));
   }
 
   const top = robots.slice(0, 9);
   const el = document.getElementById('ladderBoard');
   document.getElementById('ladderNote').textContent = `按「${cfg.label}」排名`;
-  el.innerHTML = top.map((r, i) => `
-    <div class="ladder-card${i < 3 ? ' rank-' + (i+1) : ''}" data-college="${esc(r.collegeName)}" data-type="${r.type}" style="cursor:pointer">
-      <div class="ladder-rank${i < 3 ? ' top3' : ''}">${i + 1}</div>
+  el.innerHTML = top.map(r => `
+    <div class="ladder-card${r._rankBest <= 3 ? ' rank-' + r._rankBest : ''}" data-college="${esc(r.collegeName)}" data-type="${r.type}" style="cursor:pointer">
+      <div class="ladder-rank${r._rankBest <= 3 ? ' top3' : ''}">${r._rankBest}</div>
       <img class="ladder-logo" src="${esc(r.collegeLogo)}" alt="" loading="lazy" width="40" height="40" style="background:#fff;padding:2px;border-radius:50%">
       <div class="ladder-info">
         <div class="ladder-team">${esc(r.teamName)}</div>
@@ -5848,10 +5867,10 @@ function renderMobileCards() {
   const showZone = currentZone === 'all' && DATA.zones.filter(z => !YEAR_CONFIG[currentYear].excludedZones.includes(z.zoneId)).length > 1;
 
   const container = document.querySelector('#data .table-wrap') || document.querySelector('#ladder .table-wrap');
-  container.innerHTML = `<div class="mobile-data-cards">${filtered.slice(0, 200).map((r, i) => `
-    <div class="mobile-data-card${i < 3 ? ' top3' : ''}" data-college="${esc(r.collegeName)}" data-type="${esc(currentType)}" onclick="toggleMobileCard(this)">
+  container.innerHTML = `<div class="mobile-data-cards">${filtered.slice(0, 200).map(r => `
+    <div class="mobile-data-card${r._rankBest <= 3 ? ' top3' : ''}" data-college="${esc(r.collegeName)}" data-type="${esc(currentType)}" onclick="toggleMobileCard(this)">
       <div class="mobile-data-card-header">
-        <span class="mobile-data-card-rank${i < 3 ? ' top3' : ''}">${i + 1}</span>
+        <span class="mobile-data-card-rank${r._rankBest <= 3 ? ' top3' : ''}">${r._rankBest}</span>
         <img src="${esc(r.collegeLogo)}" alt="" loading="lazy" width="32" height="32">
         <div class="mobile-data-card-name">
           <div class="mobile-data-card-team">${esc(r.teamName)}</div>
@@ -5900,8 +5919,8 @@ function renderTable() {
     ? robots.filter(r => r.teamName.toLowerCase().includes(search) || r.collegeName.toLowerCase().includes(search))
     : robots;
 
-  tbody.innerHTML = filtered.slice(0, 200).map((r, i) => `<tr${i < 3 ? ' class="rank-' + (i+1) + '"' : ''} data-college="${esc(r.collegeName)}" data-type="${esc(currentType)}" style="cursor:pointer">
-    <td class="rank-cell${i<3?' top3':''}">${i+1}</td>
+  tbody.innerHTML = filtered.slice(0, 200).map(r => `<tr${r._rankBest <= 3 ? ' class="rank-' + r._rankBest + '"' : ''} data-college="${esc(r.collegeName)}" data-type="${esc(currentType)}" style="cursor:pointer">
+    <td class="rank-cell${r._rankBest <= 3?' top3':''}">${r._rankBest}</td>
     <td>
       <div class="team-cell">
         <img src="${esc(r.collegeLogo)}" alt="" loading="lazy" width="36" height="36" style="background:#fff;padding:2px;border-radius:50%">
@@ -5972,6 +5991,48 @@ function getHistoryData(dataObj, college) {
   if (dataObj.schools[norm]) return dataObj.schools[norm];
   if (dataObj.schools[college]) return dataObj.schools[college];
   return null;
+}
+
+function getHistoryMetricValue(entry, tabKey) {
+  const value = tabKey === 'goldcoin' ? entry.goldcoin : entry.score;
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? numericValue : null;
+}
+
+function getHistoryChartData(dataObj, college, tabKey) {
+  const targetEntries = getHistoryData(dataObj, college);
+  if (!targetEntries) return null;
+
+  const entriesByYear = {};
+  Object.values(dataObj.schools || {}).forEach(schoolEntries => {
+    schoolEntries.forEach(entry => {
+      const value = getHistoryMetricValue(entry, tabKey);
+      if (value === null) return;
+      (entriesByYear[entry.year] ||= []).push({ entry, value });
+    });
+  });
+
+  const rankByEntry = new Map();
+  Object.values(entriesByYear).forEach(yearEntries => {
+    yearEntries.sort((a, b) => (a.entry.rank || 0) - (b.entry.rank || 0));
+    let groupStart = 0;
+    while (groupStart < yearEntries.length) {
+      const groupValue = yearEntries[groupStart].value;
+      let groupEnd = groupStart + 1;
+      while (groupEnd < yearEntries.length && yearEntries[groupEnd].value === groupValue) {
+        groupEnd++;
+      }
+      for (let i = groupStart; i < groupEnd; i++) {
+        rankByEntry.set(yearEntries[i].entry, groupEnd);
+      }
+      groupStart = groupEnd;
+    }
+  });
+
+  return targetEntries.map(entry => ({
+    ...entry,
+    rank: rankByEntry.get(entry) ?? entry.rank,
+  }));
 }
 
 // ── Search ──
