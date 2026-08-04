@@ -4585,15 +4585,21 @@ function getCompareZones(year, stage = compareStage) {
   return getCompareZonesForStage(year, stage);
 }
 
-function getCompareColleges(year, zoneId, stage = compareStage) {
+function getCompareSelectionZones(year) {
+  const cfg = YEAR_CONFIG[year];
+  const yearData = DATA_CACHE[year];
+  if (!cfg || !yearData) return [];
+  return yearData.zones
+    .filter(z => !cfg.excludedZones.includes(z.zoneId) && z.teams.length > 0 && zoneHasData(z))
+    .map(z => ({ zoneId: z.zoneId, zoneName: z.zoneName, teams: z.teams }));
+}
+
+function getCompareColleges(year, zoneId) {
   const yearData = DATA_CACHE[year];
   if (!yearData) return [];
-  const cfg = YEAR_CONFIG[year];
   const colleges = [];
-  yearData.zones.forEach(z => {
-    if (cfg.excludedZones.includes(z.zoneId)) return;
-    if (!isCompareZoneInStage(year, z, stage)) return;
-    // When qualifier filter is active, show colleges from all zones
+  getCompareSelectionZones(year).forEach(z => {
+    // A qualifier filter selects across all stages; otherwise keep the zone selector scoped.
     if (!qualifierFilter && z.zoneId !== zoneId) return;
     z.teams.forEach(t => {
       if (!passesQualifierFilter(t.collegeName)) return;
@@ -4642,11 +4648,12 @@ function getCompareRobot(year, zoneId, college, type) {
 
 function addCompareSlot() {
   if (compareSlots.length >= 4) return;
-  const zones = getCompareZones(currentYear);
+  const zones = getCompareSelectionZones(currentYear);
   const zoneId = zones.length > 0 ? zones[0].zoneId : '';
   const colleges = getCompareColleges(currentYear, zoneId);
   const college = colleges.length > 0 ? colleges[Math.min(compareSlots.length, colleges.length - 1)].name : '';
-  compareSlots.push({ year: currentYear, zone: zoneId, college });
+  const resultZone = getCompareCollegeZone(currentYear, college, compareStage) || zoneId;
+  compareSlots.push({ year: currentYear, zone: resultZone, selectionZone: zoneId, college });
   renderComparePage();
 }
 
@@ -4665,19 +4672,21 @@ function moveCompareSlot(idx, dir) {
 }
 function onCompareSlotChange(idx, field, value) {
   const slot = compareSlots[idx];
-  slot[field] = value;
 
   if (field === 'year') {
-    const stage = getCompareZones(value).length > 0 ? compareStage : getCompareInitialStage(value);
-    const zones = getCompareZones(value, stage);
-    slot.zone = zones.length > 0 ? zones[0].zoneId : '';
-    const colleges = getCompareColleges(value, slot.zone, stage);
+    slot.year = value;
+    const zones = getCompareSelectionZones(value);
+    slot.selectionZone = zones.length > 0 ? zones[0].zoneId : '';
+    const colleges = getCompareColleges(value, slot.selectionZone);
     slot.college = colleges.length > 0 ? colleges[0].name : '';
-    slot.zone = getCompareCollegeZone(value, slot.college, stage) || slot.zone;
+    slot.zone = getCompareCollegeZone(value, slot.college, compareStage) || slot.selectionZone;
   } else if (field === 'zone') {
-    const colleges = getCompareColleges(slot.year, value);
+    slot.selectionZone = value;
+    const colleges = getCompareColleges(slot.year, slot.selectionZone);
     slot.college = colleges.length > 0 ? colleges[0].name : '';
+    slot.zone = getCompareCollegeZone(slot.year, slot.college, compareStage) || slot.selectionZone;
   } else if (field === 'college') {
+    slot.college = value;
     slot.zone = getCompareCollegeZone(slot.year, slot.college, compareStage) || slot.zone;
   }
 
@@ -4690,20 +4699,25 @@ function renderComparePage() {
     const years = YEAR_ORDER;
     for (const year of years) { loadData(year); }
     compareStage = getCompareInitialStage(currentYear);
-    const zones = getCompareZones(currentYear);
+    const zones = getCompareSelectionZones(currentYear);
     const z0 = zones.length > 0 ? zones[0].zoneId : '';
     const colleges = getCompareColleges(currentYear, z0);
     const c0 = colleges.length > 0 ? colleges[0].name : '';
     const c1 = colleges.length > 1 ? colleges[1].name : c0;
-    compareSlots.push({ year: currentYear, zone: z0, college: c0 });
+    compareSlots.push({
+      year: currentYear,
+      zone: getCompareCollegeZone(currentYear, c0, compareStage) || z0,
+      selectionZone: z0,
+      college: c0
+    });
     if (colleges.length > 1) {
-      compareSlots.push({ year: currentYear, zone: z0, college: c1 });
+      compareSlots.push({
+        year: currentYear,
+        zone: getCompareCollegeZone(currentYear, c1, compareStage) || z0,
+        selectionZone: z0,
+        college: c1
+      });
     }
-  }
-
-  const stageOptions = getCompareStageOptions();
-  if (stageOptions.length > 0 && !stageOptions.includes(compareStage)) {
-    compareStage = stageOptions[0];
   }
 
   // Shared type selector (centered) — show types available in selected years
@@ -4727,23 +4741,29 @@ function renderComparePage() {
 
   // Render slot selectors
   const slotsEl = document.getElementById('compareSlots');
-  // Reset slot college if it's no longer in the filtered list
+  // Keep team selection independent from the currently selected event stage.
   compareSlots.forEach((slot, slotIndex) => {
-    const zones = getCompareZones(slot.year);
-    const stageZone = getCompareCollegeZone(slot.year, slot.college, compareStage);
-    if (stageZone) {
-      slot.zone = stageZone;
-    } else if (!zones.find(z => z.zoneId === slot.zone)) {
-      slot.zone = zones.length > 0 ? zones[0].zoneId : '';
+    const zones = getCompareSelectionZones(slot.year);
+    if (!slot.selectionZone || !zones.find(z => z.zoneId === slot.selectionZone)) {
+      slot.selectionZone = zones.length > 0 ? zones[0].zoneId : '';
     }
-    const colleges = getCompareColleges(slot.year, slot.zone);
+    const colleges = getCompareColleges(slot.year, slot.selectionZone);
     if (colleges.length > 0 && !colleges.find(c => c.name === slot.college)) {
       slot.college = colleges[Math.min(slotIndex, colleges.length - 1)].name;
     }
   });
+
+  const stageOptions = getCompareStageOptions();
+  if (stageOptions.length > 0 && !stageOptions.includes(compareStage)) {
+    compareStage = stageOptions[0];
+  }
+  compareSlots.forEach(slot => {
+    slot.zone = getCompareCollegeZone(slot.year, slot.college, compareStage) || slot.selectionZone || slot.zone;
+  });
+
   slotsEl.innerHTML = qualifierFilterHtml() + compareSlots.map((slot, idx) => {
-    const zones = getCompareZones(slot.year);
-    const colleges = getCompareColleges(slot.year, slot.zone);
+    const zones = getCompareSelectionZones(slot.year);
+    const colleges = getCompareColleges(slot.year, slot.selectionZone);
     const selCollege = colleges.find(c => c.name === slot.college);
     const logo = selCollege?.logo || '';
     return `<div class="compare-slot">
@@ -4752,7 +4772,7 @@ function renderComparePage() {
         ${YEAR_ORDER.map(y => `<option value="${y}"${y===slot.year?' selected':''}>${y}</option>`).join('')}
       </select>
       ${!qualifierFilter ? `<select class="compare-select" onchange="onCompareSlotChange(${idx},'zone',this.value)">
-        ${zones.map(z => `<option value="${z.zoneId}"${z.zoneId===slot.zone?' selected':''}>${z.zoneName}</option>`).join('')}
+        ${zones.map(z => `<option value="${z.zoneId}"${z.zoneId===slot.selectionZone?' selected':''}>${z.zoneName}</option>`).join('')}
       </select>` : ''}
       <select class="compare-select" onchange="onCompareSlotChange(${idx},'college',this.value)" style="min-width:180px">
         ${colleges.map(c => `<option value="${esc(c.name)}"${c.name===slot.college?' selected':''}>${esc(c.name)}</option>`).join('')}
@@ -4947,7 +4967,7 @@ function renderCompareResult() {
       <div class="type-detail-cell col-header corner-cell">指标</div>
       ${resolved.map(s => {
         const typeName = TYPE_NAMES[compareType] || compareType;
-        const colleges = getCompareColleges(s.year, s.zone);
+        const colleges = getCompareColleges(s.year, s.selectionZone);
         const logo = colleges.find(c => c.name === s.college)?.logo || '';
         const logoHtml = logo ? `<img src="${esc(logo)}" class="compare-header-logo" width="36" height="36" alt="">` : '';
         const label = `${esc(s.college)}<br><span style="font-size:11px;opacity:0.75">${s.zoneName} · ${typeName} ${s.year}</span>`;
@@ -5317,6 +5337,8 @@ const QUALIFIERS_NATIONAL = [
   { college: '上海交通大学', zone: '南部赛区', team: '交龙' },
   { college: '深圳大学', zone: '南部赛区', team: 'RobotPilots' },
   { college: '武汉工程大学', zone: '南部赛区', team: 'Nautilus' },
+  { college: '广东工业大学', zone: '南部赛区', team: 'DynamicX' },
+  { college: '厦门大学嘉庚学院', zone: '南部赛区', team: 'TCR' },
   { college: '仲恺农业工程学院', zone: '南部赛区', team: '奇点' },
   // 东部赛区
   { college: '中国石油大学（华东）', zone: '东部赛区', team: 'RPS' },
@@ -5338,6 +5360,8 @@ const QUALIFIERS_NATIONAL = [
   { college: '复旦大学', zone: '北部赛区', team: '星云EGA' },
   { college: '大连理工大学', zone: '北部赛区', team: '凌BUG' },
   { college: '长安大学', zone: '北部赛区', team: 'VGD' },
+  { college: '沈阳理工大学', zone: '北部赛区', team: 'Ambition' },
+  { college: '应急管理大学', zone: '北部赛区', team: '风暴' },
 ];
 
 const QUALIFIERS_REVIVAL = [
