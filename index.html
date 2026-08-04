@@ -1613,11 +1613,11 @@ td.num-cell.highlight {
   <!-- Compare Section -->
   <section id="compareSection" style="display:none;padding-top:120px">
     <h2 class="section-title">数据对比</h2>
-    <div id="compareStageFilter" style="text-align:center;margin-bottom:var(--sp-md)"></div>
     <div id="compareSlots"></div>
     <div id="compareAddBtn" style="margin:var(--sp-md) 0">
       <button class="pill" onclick="addCompareSlot()">+ 添加对比项</button>
     </div>
+    <div id="compareStageFilter" style="text-align:center;margin-bottom:var(--sp-md)"></div>
     <div id="compareTypeFilter" style="text-align:center;margin-bottom:var(--sp-md)"></div>
     <div id="compareResult"></div>
     <div id="compareHistoryWrap" style="display:none;margin-top:var(--sp-xl)"></div>
@@ -4498,17 +4498,31 @@ let compareSlots = [];
 let compareType = 'Infantry';
 let compareHistoryTab = 'score';
 let compareStage = 'regional';
+const COMPARE_STAGE_KEYS = ['regional', 'revival', 'national'];
+const COMPARE_STAGE_LABELS = {
+  regional: '分区赛',
+  revival: '复活赛',
+  national: '全国赛',
+};
 
 function isCompareRevivalZone(year, zone) {
   const cfg = YEAR_CONFIG[year];
   return zone.zoneName?.includes('复活赛') || cfg?.qualifierZoneIds?.revival === zone.zoneId;
 }
 
+function isCompareNationalZone(year, zone) {
+  const cfg = YEAR_CONFIG[year];
+  return zone.zoneName?.includes('全国赛') || cfg?.qualifierZoneIds?.national === zone.zoneId;
+}
+
 function isCompareZoneInStage(year, zone, stage = compareStage) {
   if (stage === 'revival') return isCompareRevivalZone(year, zone);
+  if (stage === 'national') return isCompareNationalZone(year, zone);
   const regionalIds = YEAR_CONFIG[year]?.subRegionalIds || [];
-  // Historical files without regional zone metadata keep their existing scope.
-  return regionalIds.length === 0 || regionalIds.includes(zone.zoneId);
+  // Historical files without stage metadata keep non-national zones in scope.
+  return regionalIds.length === 0
+    ? !isCompareRevivalZone(year, zone) && !isCompareNationalZone(year, zone)
+    : regionalIds.includes(zone.zoneId);
 }
 
 function getCompareZonesForStage(year, stage = compareStage) {
@@ -4519,49 +4533,66 @@ function getCompareZonesForStage(year, stage = compareStage) {
   return yearData.zones
     .filter(z => !cfg.excludedZones.includes(z.zoneId) && z.teams.length > 0 && zoneHasData(z))
     .filter(z => isCompareZoneInStage(year, z, stage))
-    .map(z => ({ zoneId: z.zoneId, zoneName: z.zoneName }));
+    .map(z => ({ zoneId: z.zoneId, zoneName: z.zoneName, teams: z.teams }));
 }
 
-function hasCompareRevivalData() {
-  return YEAR_ORDER.some(year => getCompareZonesForStage(year, 'revival').length > 0);
+function getCompareInitialStage(year) {
+  if (getCompareZonesForStage(year, compareStage).length > 0) return compareStage;
+  return ['regional', 'national', 'revival'].find(stage => getCompareZonesForStage(year, stage).length > 0) || 'regional';
 }
 
-function renderCompareStageTabs() {
+function hasCompareCollegeInStage(year, college, stage) {
+  if (!college) return false;
+  return getCompareZonesForStage(year, stage).some(zone =>
+    zone.teams.some(team => team.collegeName === college)
+  );
+}
+
+function getCompareStageOptions() {
+  if (compareSlots.length === 0) {
+    return COMPARE_STAGE_KEYS.filter(stage => getCompareZonesForStage(currentYear, stage).length > 0);
+  }
+  return COMPARE_STAGE_KEYS.filter(stage => compareSlots.every(slot =>
+    hasCompareCollegeInStage(slot.year, slot.college, stage)
+  ));
+}
+
+function renderCompareStageTabs(stageOptions = getCompareStageOptions()) {
   const container = document.getElementById('compareStageFilter');
   if (!container) return;
-  if (!hasCompareRevivalData()) {
-    compareStage = 'regional';
+  if (stageOptions.length === 0) {
     container.innerHTML = '';
     return;
   }
   container.innerHTML = `
     <div class="filter-group" style="display:inline-flex">
       <span class="filter-label">赛事</span>
-      <button class="pill${compareStage === 'regional' ? ' active' : ''}" onclick="setCompareStage('regional')">分区赛</button>
-      <button class="pill${compareStage === 'revival' ? ' active' : ''}" onclick="setCompareStage('revival')">复活赛</button>
+      ${stageOptions.map(stage => `<button class="pill${compareStage === stage ? ' active' : ''}" onclick="setCompareStage('${stage}')">${COMPARE_STAGE_LABELS[stage]}</button>`).join('')}
     </div>
   `;
 }
 
 function setCompareStage(stage) {
-  if (stage !== 'regional' && stage !== 'revival') return;
-  if (stage === 'revival' && !hasCompareRevivalData()) return;
+  if (!COMPARE_STAGE_KEYS.includes(stage) || !getCompareStageOptions().includes(stage)) return;
   compareStage = stage;
+  compareSlots.forEach(slot => {
+    slot.zone = getCompareCollegeZone(slot.year, slot.college, stage) || slot.zone;
+  });
   renderComparePage();
 }
 
-function getCompareZones(year) {
-  return getCompareZonesForStage(year);
+function getCompareZones(year, stage = compareStage) {
+  return getCompareZonesForStage(year, stage);
 }
 
-function getCompareColleges(year, zoneId) {
+function getCompareColleges(year, zoneId, stage = compareStage) {
   const yearData = DATA_CACHE[year];
   if (!yearData) return [];
   const cfg = YEAR_CONFIG[year];
   const colleges = [];
   yearData.zones.forEach(z => {
     if (cfg.excludedZones.includes(z.zoneId)) return;
-    if (!isCompareZoneInStage(year, z)) return;
+    if (!isCompareZoneInStage(year, z, stage)) return;
     // When qualifier filter is active, show colleges from all zones
     if (!qualifierFilter && z.zoneId !== zoneId) return;
     z.teams.forEach(t => {
@@ -4574,7 +4605,7 @@ function getCompareColleges(year, zoneId) {
   return colleges;
 }
 
-function getCompareCollegeZone(year, college) {
+function getCompareCollegeZone(year, college, stage = compareStage) {
   const yearData = DATA_CACHE[year];
   if (!yearData) return '';
   const cfg = YEAR_CONFIG[year];
@@ -4582,7 +4613,7 @@ function getCompareCollegeZone(year, college) {
 
   for (const zone of yearData.zones) {
     if (cfg.excludedZones.includes(zone.zoneId)) continue;
-    if (!isCompareZoneInStage(year, zone)) continue;
+    if (!isCompareZoneInStage(year, zone, stage)) continue;
     for (const team of zone.teams) {
       if (team.collegeName !== college) continue;
       const hasStats = team.robots.some(robot => Object.entries(robot).some(([key, value]) =>
@@ -4637,30 +4668,28 @@ function onCompareSlotChange(idx, field, value) {
   slot[field] = value;
 
   if (field === 'year') {
-    const zones = getCompareZones(value);
+    const stage = getCompareZones(value).length > 0 ? compareStage : getCompareInitialStage(value);
+    const zones = getCompareZones(value, stage);
     slot.zone = zones.length > 0 ? zones[0].zoneId : '';
-    const colleges = getCompareColleges(value, slot.zone);
+    const colleges = getCompareColleges(value, slot.zone, stage);
     slot.college = colleges.length > 0 ? colleges[0].name : '';
-    if (qualifierFilter) {
-      slot.zone = getCompareCollegeZone(value, slot.college) || slot.zone;
-    }
+    slot.zone = getCompareCollegeZone(value, slot.college, stage) || slot.zone;
   } else if (field === 'zone') {
     const colleges = getCompareColleges(slot.year, value);
     slot.college = colleges.length > 0 ? colleges[0].name : '';
-  } else if (field === 'college' && qualifierFilter) {
-    slot.zone = getCompareCollegeZone(slot.year, slot.college) || slot.zone;
+  } else if (field === 'college') {
+    slot.zone = getCompareCollegeZone(slot.year, slot.college, compareStage) || slot.zone;
   }
 
   renderComparePage();
 }
 
 function renderComparePage() {
-  renderCompareStageTabs();
-
   // Initialize with 2 default slots
   if (compareSlots.length === 0) {
     const years = YEAR_ORDER;
     for (const year of years) { loadData(year); }
+    compareStage = getCompareInitialStage(currentYear);
     const zones = getCompareZones(currentYear);
     const z0 = zones.length > 0 ? zones[0].zoneId : '';
     const colleges = getCompareColleges(currentYear, z0);
@@ -4670,6 +4699,11 @@ function renderComparePage() {
     if (colleges.length > 1) {
       compareSlots.push({ year: currentYear, zone: z0, college: c1 });
     }
+  }
+
+  const stageOptions = getCompareStageOptions();
+  if (stageOptions.length > 0 && !stageOptions.includes(compareStage)) {
+    compareStage = stageOptions[0];
   }
 
   // Shared type selector (centered) — show types available in selected years
@@ -4696,15 +4730,15 @@ function renderComparePage() {
   // Reset slot college if it's no longer in the filtered list
   compareSlots.forEach((slot, slotIndex) => {
     const zones = getCompareZones(slot.year);
-    if (!zones.find(z => z.zoneId === slot.zone)) {
+    const stageZone = getCompareCollegeZone(slot.year, slot.college, compareStage);
+    if (stageZone) {
+      slot.zone = stageZone;
+    } else if (!zones.find(z => z.zoneId === slot.zone)) {
       slot.zone = zones.length > 0 ? zones[0].zoneId : '';
     }
     const colleges = getCompareColleges(slot.year, slot.zone);
     if (colleges.length > 0 && !colleges.find(c => c.name === slot.college)) {
       slot.college = colleges[Math.min(slotIndex, colleges.length - 1)].name;
-    }
-    if (qualifierFilter) {
-      slot.zone = getCompareCollegeZone(slot.year, slot.college) || (zones.length > 0 ? zones[0].zoneId : '');
     }
   });
   slotsEl.innerHTML = qualifierFilterHtml() + compareSlots.map((slot, idx) => {
@@ -4733,6 +4767,7 @@ function renderComparePage() {
   const addBtn = document.getElementById('compareAddBtn');
   if (addBtn) addBtn.style.display = compareSlots.length >= 4 ? 'none' : '';
 
+  renderCompareStageTabs(stageOptions);
   renderCompareResult();
 }
 
