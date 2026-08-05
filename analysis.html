@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="static/rm-ladder-favicon.svg">
 <title>RM Ladder — 热力图</title>
 <style>
 /* ── Reset ── */
@@ -50,11 +51,17 @@ body {
   border-bottom: 1px solid var(--hairline-on-dark);
 }
 .nav-logo {
-  font-family: var(--font-display);
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: 2px;
-  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+}
+.nav-logo img {
+  display: block;
+  width: 36px;
+  height: 36px;
 }
 .nav-links { display: flex; gap: var(--sp-xl); }
 .nav-links a {
@@ -275,7 +282,7 @@ body {
 
 <!-- Nav -->
 <nav class="nav">
-  <div class="nav-logo">RM LADDER</div>
+  <a href="index.html" class="nav-logo" aria-label="RM Ladder"><img src="static/rm-ladder-logo.svg" alt=""></a>
   <div class="nav-links">
     <a href="index.html">天梯榜</a>
     <a href="analysis.html" class="active">热力图</a>

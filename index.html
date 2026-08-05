@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="static/rm-ladder-favicon.svg">
 <title>RM Ladder — RoboMaster 天梯榜</title>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 <style>
@@ -62,11 +63,17 @@ body {
   border-bottom: 1px solid var(--hairline-on-dark);
 }
 .nav-logo {
-  font-family: var(--font-display);
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: 2px;
-  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+}
+.nav-logo img {
+  display: block;
+  width: 36px;
+  height: 36px;
 }
 .nav-links { display: flex; gap: var(--sp-xl); }
 .nav-links a {
@@ -87,6 +94,12 @@ body {
 .hero {
   padding: 160px var(--sp-xxl) var(--sp-huge);
   text-align: center;
+}
+.hero-logo {
+  display: block;
+  width: 88px;
+  height: 68px;
+  margin: 0 auto var(--sp-xl);
 }
 .hero h1 {
   font-family: var(--font-display);
@@ -1539,7 +1552,7 @@ td.num-cell.highlight {
 
 <!-- Nav -->
 <nav class="nav">
-  <a href="#" class="nav-logo" style="text-decoration:none;color:inherit">RM Ladder</a>
+  <a href="#" class="nav-logo" aria-label="RM Ladder"><img src="static/rm-ladder-logo.svg" alt=""></a>
   <button class="nav-toggle" onclick="toggleNav()" aria-label="菜单">
     <span></span><span></span><span></span>
   </button>
@@ -1555,6 +1568,7 @@ td.num-cell.highlight {
 
 <!-- Hero -->
 <section class="hero">
+  <img class="hero-logo" src="static/rm-ladder-logo.svg" alt="RM Ladder">
   <h1 id="heroTitle">RoboMaster<br>2026 天梯榜</h1>
   <p>各赛区 · 各兵种 · 全维度数据排名</p>
 </section>

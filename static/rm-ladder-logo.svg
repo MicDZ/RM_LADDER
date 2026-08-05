@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 140" role="img" aria-labelledby="logoTitle logoDesc">
+  <title id="logoTitle">RM Ladder</title>
+  <desc id="logoDesc">A geometric RoboMaster-inspired R mark with ascending ladder steps.</desc>
+  <g fill="#FFFFFF">
+    <!-- Clean mechanical R silhouette with one simple armor aperture. -->
+    <path fill-rule="evenodd" d="M18 18h61c22 0 35 12 35 30 0 14-7 24-20 29l24 34H88L64 81H47v30H18V18Zm29 25v19h30c7 0 11-3 11-9s-4-10-11-10H47Z"/>
+    <!-- A separate two-rail ladder makes the ranking idea explicit. -->
+    <g transform="rotate(-17 137 73)">
+      <path d="M121 31h8v77h-8zM149 31h8v77h-8z"/>
+      <path d="M129 38h20v8h-20zM129 56h20v8h-20zM129 74h20v8h-20zM129 92h20v8h-20z"/>
+    </g>
+  </g>
+</svg>

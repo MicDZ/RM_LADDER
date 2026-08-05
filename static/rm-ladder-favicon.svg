@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img" aria-labelledby="faviconTitle">
+  <title id="faviconTitle">RM Ladder</title>
+  <rect width="180" height="180" fill="#000000"/>
+  <g transform="translate(0 20)" fill="#FFFFFF">
+    <path fill-rule="evenodd" d="M18 18h61c22 0 35 12 35 30 0 14-7 24-20 29l24 34H88L64 81H47v30H18V18Zm29 25v19h30c7 0 11-3 11-9s-4-10-11-10H47Z"/>
+    <g transform="rotate(-17 137 73)">
+      <path d="M121 31h8v77h-8zM149 31h8v77h-8z"/>
+      <path d="M129 38h20v8h-20zM129 56h20v8h-20zM129 74h20v8h-20zM129 92h20v8h-20z"/>
+    </g>
+  </g>
+</svg>
